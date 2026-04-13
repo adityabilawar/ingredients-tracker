@@ -2,7 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   BookmarkPlus,
   ChefHat,
@@ -85,6 +91,61 @@ type PantryOnlyResponse =
     }
   | { provider: "none"; recipes: unknown[]; message?: string };
 
+const SS_PANTRY_EMPTY = "ingredients-tracker:recipes-pantry-empty-v1";
+const SS_SAVED_LIST = "ingredients-tracker:recipes-saved-list-v1";
+
+function readPantryEmptyFromSession(): PantryOnlyResponse | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SS_PANTRY_EMPTY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PantryOnlyResponse;
+  } catch {
+    return null;
+  }
+}
+
+function writePantryEmptyToSession(data: PantryOnlyResponse) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SS_PANTRY_EMPTY, JSON.stringify(data));
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+function readSavedListFromSession(): RecipeWithLines[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SS_SAVED_LIST);
+    if (!raw) return null;
+    return JSON.parse(raw) as RecipeWithLines[];
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedListToSession(list: RecipeWithLines[]) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SS_SAVED_LIST, JSON.stringify(list));
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+function isEmptyExcludeList(excludeList: string[]) {
+  return excludeList.every((t) => !t.trim());
+}
+
+/** Base pantry match (no ?exclude=); reused across visits and tabs in this session. */
+let pantryOnlyEmptyCache: PantryOnlyResponse | null = null;
+let pantryOnlyEmptyInFlight: Promise<PantryOnlyResponse> | null = null;
+
+/** `null` means we have not successfully loaded the library yet. */
+let savedRecipesCache: RecipeWithLines[] | null = null;
+let savedRecipesInFlight: Promise<RecipeWithLines[]> | null = null;
+
 function collectPantryTitles(data: PantryOnlyResponse | null): string[] {
   if (!data || data.provider === "none") return [];
   if (data.provider === "spoonacular") {
@@ -146,6 +207,48 @@ export function RecipesClient() {
   const [savingNew, setSavingNew] = useState(false);
 
   const loadPantryOnly = useCallback(async (excludeList: string[] = []) => {
+    const empty = isEmptyExcludeList(excludeList);
+
+    if (empty) {
+      if (!pantryOnlyEmptyCache) {
+        const fromSession = readPantryEmptyFromSession();
+        if (fromSession) pantryOnlyEmptyCache = fromSession;
+      }
+      if (pantryOnlyEmptyCache) {
+        setPantryOnly(pantryOnlyEmptyCache);
+        setPantryLoading(false);
+        return;
+      }
+
+      setPantryLoading(true);
+      try {
+        if (!pantryOnlyEmptyInFlight) {
+          pantryOnlyEmptyInFlight = jsonFetch<PantryOnlyResponse>(
+            "/api/recipes/pantry-only",
+          )
+            .then((data) => {
+              pantryOnlyEmptyCache = data;
+              writePantryEmptyToSession(data);
+              return data;
+            })
+            .finally(() => {
+              pantryOnlyEmptyInFlight = null;
+            });
+        }
+        const data = await pantryOnlyEmptyInFlight;
+        setPantryOnly(data);
+      } catch (e) {
+        toast.error(
+          e instanceof Error
+            ? e.message
+            : "Failed to load pantry-only recipes",
+        );
+      } finally {
+        setPantryLoading(false);
+      }
+      return;
+    }
+
     setPantryLoading(true);
     try {
       const params = new URLSearchParams();
@@ -181,18 +284,60 @@ export function RecipesClient() {
     void loadPantryOnly([]);
   }
 
-  const loadSaved = useCallback(async () => {
+  const loadSaved = useCallback(async (force = false) => {
+    if (!force && savedRecipesCache !== null) {
+      setSaved(savedRecipesCache);
+      savedLoadedRef.current = true;
+      return;
+    }
+
+    if (!force) {
+      const raw = readSavedListFromSession();
+      if (raw) {
+        const list = raw.map((r) => ({
+          ...r,
+          recipe_ingredients: (r.recipe_ingredients ?? []).sort(
+            (a, b) => a.sort_order - b.sort_order,
+          ),
+        }));
+        savedRecipesCache = list;
+        setSaved(list);
+        savedLoadedRef.current = true;
+        return;
+      }
+    }
+
     setSavedLoading(true);
     try {
-      const data = await jsonFetch<{ recipes: RecipeWithLines[] }>(
-        "/api/recipes",
-      );
-      const list = (data.recipes ?? []).map((r) => ({
-        ...r,
-        recipe_ingredients: (r.recipe_ingredients ?? []).sort(
-          (a, b) => a.sort_order - b.sort_order,
-        ),
-      }));
+      if (!force && savedRecipesInFlight) {
+        const list = await savedRecipesInFlight;
+        setSaved(list);
+        savedLoadedRef.current = true;
+        return;
+      }
+
+      const run = async () => {
+        const data = await jsonFetch<{ recipes: RecipeWithLines[] }>(
+          "/api/recipes",
+        );
+        return (data.recipes ?? []).map((r) => ({
+          ...r,
+          recipe_ingredients: (r.recipe_ingredients ?? []).sort(
+            (a, b) => a.sort_order - b.sort_order,
+          ),
+        }));
+      };
+
+      const pending = run();
+      if (!force) {
+        savedRecipesInFlight = pending.finally(() => {
+          savedRecipesInFlight = null;
+        });
+      }
+
+      const list = await pending;
+      savedRecipesCache = list;
+      writeSavedListToSession(list);
       setSaved(list);
       savedLoadedRef.current = true;
     } catch (e) {
@@ -202,7 +347,7 @@ export function RecipesClient() {
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (pantryBootstrappedRef.current) return;
     pantryBootstrappedRef.current = true;
     void loadPantryOnly([]);
@@ -226,7 +371,7 @@ export function RecipesClient() {
         }),
       });
       toast.success("Recipe saved");
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     }
@@ -244,7 +389,7 @@ export function RecipesClient() {
         }),
       });
       toast.success("Recipe saved");
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed");
     }
@@ -283,7 +428,7 @@ export function RecipesClient() {
       );
       toast.success("Recipe updated");
       setDetail(data.recipe);
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Update failed");
     } finally {
@@ -304,7 +449,7 @@ export function RecipesClient() {
       );
       toast.success("YouTube link refreshed");
       setDetail(data.recipe);
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Refresh failed");
     } finally {
@@ -317,7 +462,7 @@ export function RecipesClient() {
       await jsonFetch(`/api/recipes/${id}`, { method: "DELETE" });
       toast.success("Deleted");
       setDetail((d) => (d?.id === id ? null : d));
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Delete failed");
     }
@@ -345,7 +490,7 @@ export function RecipesClient() {
       setNewOpen(false);
       setNewName("");
       setNewLines("");
-      await loadSaved();
+      await loadSaved(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Create failed");
     } finally {

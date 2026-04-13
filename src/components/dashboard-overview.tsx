@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Stagger, FadeItem } from "@/components/motion-primitives";
+import { PantryShortsSection } from "@/components/pantry-shorts-section";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -102,6 +103,14 @@ export function DashboardOverview({
           </FadeItem>
         ))}
       </Stagger>
+
+      <section className="space-y-4">
+        <div className="px-0.5">
+          <h2 className="text-lg font-semibold tracking-tight">Shorts</h2>
+          <p className="text-muted-foreground text-sm">From your pantry</p>
+        </div>
+        <PantryShortsSection />
+      </section>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
         <section className="space-y-4">
