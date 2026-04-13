@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingStatus } from "@/components/loading-status";
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -193,7 +194,12 @@ export function MealPlanClient() {
       </div>
 
       {loading ? (
-        <Skeleton className="h-[28rem] w-full rounded-2xl" />
+        <LoadingStatus
+          title="Loading meal plan"
+          subtitle="Fetching this week’s slots and your saved recipes…"
+        >
+          <Skeleton className="h-[28rem] w-full rounded-2xl" />
+        </LoadingStatus>
       ) : recipes.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
           <p className="text-muted-foreground text-sm leading-relaxed">

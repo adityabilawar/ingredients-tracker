@@ -16,6 +16,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadingStatus } from "@/components/loading-status";
 import type { YoutubeMatch } from "@/lib/youtube";
 
 type PantryShortsResponse =
@@ -146,10 +147,14 @@ export function PantryShortsSection() {
   if (loading) {
     return (
       <div
-        className="bg-background flex items-center justify-center rounded-xl border border-border"
+        className="bg-background flex items-center justify-center rounded-xl border border-border px-4 py-6"
         style={{ height: FEED_HEIGHT }}
       >
-        <p className="text-muted-foreground text-sm">Loading Shorts…</p>
+        <LoadingStatus
+          title="Loading Shorts"
+          subtitle="Fetching YouTube results based on your pantry…"
+          className="w-full max-w-md"
+        />
       </div>
     );
   }

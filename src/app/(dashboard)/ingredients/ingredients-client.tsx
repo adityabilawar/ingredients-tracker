@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingStatus } from "@/components/loading-status";
 import { ReceiptScanner } from "@/components/receipt-scanner";
 import { LiftHover, Stagger, FadeItem } from "@/components/motion-primitives";
 import { cn } from "@/lib/utils";
@@ -156,11 +157,16 @@ export function IngredientsClient() {
       </div>
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-72 rounded-2xl" />
-          ))}
-        </div>
+        <LoadingStatus
+          title="Loading ingredients"
+          subtitle="Fetching your pantry from the server…"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-72 rounded-2xl" />
+            ))}
+          </div>
+        </LoadingStatus>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border px-6 py-16 text-center">
           <div className="bg-muted text-muted-foreground flex size-14 items-center justify-center rounded-xl">

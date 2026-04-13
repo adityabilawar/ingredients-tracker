@@ -13,6 +13,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingStatus } from "@/components/loading-status";
 
 type YoutubeMatch = {
   videoId: string;
@@ -62,11 +63,16 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
 
   if (loading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-video rounded-2xl" />
-        ))}
-      </div>
+      <LoadingStatus
+        title="Loading videos"
+        subtitle="Fetching cooking videos for this recipe…"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-video rounded-2xl" />
+          ))}
+        </div>
+      </LoadingStatus>
     );
   }
 

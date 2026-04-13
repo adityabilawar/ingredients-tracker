@@ -12,7 +12,6 @@ import {
 import {
   BookmarkPlus,
   ChefHat,
-  Loader2,
   Pencil,
   RefreshCw,
   Trash2,
@@ -38,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { LiftHover, Stagger, FadeItem } from "@/components/motion-primitives";
+import { LoadingStatus } from "@/components/loading-status";
 import { RecipeImageLoader } from "@/components/recipe-image-loader";
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
@@ -155,31 +155,6 @@ function collectPantryTitles(data: PantryOnlyResponse | null): string[] {
     return data.recipes.map((r) => r.title);
   }
   return data.recipes.map((r) => r.title);
-}
-
-function RecipesFetchLoading({ subtitle }: { subtitle: string }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex min-h-[min(28rem,calc(100vh-14rem))] flex-col items-center justify-center gap-6 rounded-xl border border-border px-6 py-16"
-    >
-      <div className="flex size-16 items-center justify-center rounded-xl bg-muted">
-        <Loader2
-          className="text-primary size-9 animate-spin"
-          aria-hidden
-        />
-      </div>
-      <div className="max-w-sm space-y-2 text-center">
-        <p className="text-xl font-semibold tracking-tight">
-          Loading recipes
-        </p>
-        <p className="text-muted-foreground text-sm leading-relaxed">
-          {subtitle}
-        </p>
-      </div>
-    </div>
-  );
 }
 
 export function RecipesClient() {
@@ -527,7 +502,11 @@ export function RecipesClient() {
 
         <TabsContent value="pantry-only" className="space-y-6 pt-6">
           {pantryLoading ? (
-            <RecipesFetchLoading subtitle="Matching your pantry to ideas from the recipe APIs…" />
+            <LoadingStatus
+              variant="centered"
+              title="Loading recipes"
+              subtitle="Matching your pantry to ideas from the recipe APIs…"
+            />
           ) : !pantryOnly ? (
             <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
@@ -828,7 +807,11 @@ export function RecipesClient() {
             </Button>
           </div>
           {savedLoading ? (
-            <RecipesFetchLoading subtitle="Fetching your saved library…" />
+            <LoadingStatus
+              variant="centered"
+              title="Loading recipes"
+              subtitle="Fetching your saved library…"
+            />
           ) : saved.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <p className="text-muted-foreground text-sm leading-relaxed">

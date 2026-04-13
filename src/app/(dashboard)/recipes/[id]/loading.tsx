@@ -26,9 +26,14 @@ export default function RecipeDetailLoading() {
         <div className="border-t border-border px-6 py-10 md:px-8">
           <div className="flex min-h-[8rem] flex-col items-center justify-center gap-4">
             <Loader2 className="text-primary size-8 animate-spin" aria-hidden />
-            <p className="text-muted-foreground text-sm font-medium">
-              Loading recipe…
-            </p>
+            <div className="space-y-1 text-center">
+              <p className="text-muted-foreground text-sm font-medium">
+                Loading recipe…
+              </p>
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Fetching details, ingredients, and media…
+              </p>
+            </div>
           </div>
         </div>
       </div>
