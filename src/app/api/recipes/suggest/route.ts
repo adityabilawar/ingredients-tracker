@@ -57,6 +57,9 @@ export async function GET() {
       title: r.title,
       image: r.image,
       ingredients: r.ingredients,
+      cuisine: r.cuisine,
+      meal_type: r.meal_type,
+      description: r.description,
     })),
   });
 }

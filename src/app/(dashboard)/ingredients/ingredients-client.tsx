@@ -167,10 +167,9 @@ export function IngredientsClient() {
             <Package className="size-7" />
           </div>
           <div className="max-w-sm space-y-2">
-            <p className="font-heading text-lg font-semibold">Pantry is ready for its first star</p>
+            <p className="font-heading text-lg font-semibold">No ingredients yet</p>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Add your first ingredient to power recipe suggestions and keep your
-              kitchen organized.
+              Add what you have so pantry-based recipes can match your kitchen.
             </p>
           </div>
           <Button size="lg" className="min-h-11" onClick={() => setOpen(true)}>

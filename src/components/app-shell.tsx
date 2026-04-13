@@ -29,7 +29,7 @@ import type { User } from "@supabase/supabase-js";
 
 const nav = [
   { href: "/", label: "Home", icon: LayoutDashboard },
-  { href: "/ingredients", label: "My pantry", icon: Salad },
+  { href: "/ingredients", label: "Pantry", icon: Salad },
   { href: "/recipes", label: "Recipes", icon: ChefHat },
   { href: "/meal-plan", label: "Meal plan", icon: UtensilsCrossed },
   { href: "/supplements", label: "Supplements", icon: Pill },
@@ -112,11 +112,6 @@ export function AppShell({
           </div>
         </div>
         <NavLinks />
-        <div className="mt-auto space-y-2 p-4">
-          <div className="glass-panel rounded-xl px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-            Tip: keep pantry items fresh — better matches when you explore recipes.
-          </div>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

@@ -6,11 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookmarkPlus,
   ChefHat,
-  Flame,
-  Loader2,
   Pencil,
-  Search,
-  Timer,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -47,88 +44,67 @@ async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-function formatPrep(minutes: number | null) {
-  if (minutes == null) return null;
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m ? `${h}h ${m}m` : `${h}h`;
-}
-
-function difficultyFromMinutes(minutes: number | null) {
-  if (minutes == null) return null;
-  if (minutes <= 20) return "Easy";
-  if (minutes <= 45) return "Medium";
-  return "Deep";
-}
-
 type RecipeWithLines = Recipe & {
   recipe_ingredients: RecipeIngredient[] | null;
 };
 
-type SuggestResponse =
-  | {
-      provider: "spoonacular";
-      recipes: {
-        spoonacularId: number;
-        title: string;
-        image: string | null;
-        usedIngredientCount?: number;
-        missedIngredientCount?: number;
-      }[];
-    }
-  | {
-      provider: "openai";
-      recipes: {
-        aiId: string;
-        title: string;
-        image: null;
-        ingredients: string[];
-      }[];
-    }
-  | { provider: "none"; recipes: unknown[]; message?: string };
+type PantryOpenAiCard = {
+  aiId: string;
+  title: string;
+  image: null;
+  ingredients: string[];
+  cuisine: string;
+  meal_type: string;
+  description: string;
+};
+
+type PantrySpoonacularCard = {
+  spoonacularId: number;
+  title: string;
+  image: string | null;
+  usedIngredientCount: number;
+  missedIngredientCount: number;
+};
+
+type PantryMixedRecipe =
+  | ({ type: "openai" } & PantryOpenAiCard)
+  | ({ type: "spoonacular" } & PantrySpoonacularCard);
 
 type PantryOnlyResponse =
   | {
       provider: "spoonacular";
-      recipes: {
-        spoonacularId: number;
-        title: string;
-        image: string | null;
-        usedIngredientCount: number;
-        missedIngredientCount: number;
-      }[];
+      recipes: PantrySpoonacularCard[];
     }
   | {
       provider: "openai";
-      recipes: {
-        aiId: string;
-        title: string;
-        image: null;
-        ingredients: string[];
-      }[];
+      recipes: PantryOpenAiCard[];
+    }
+  | {
+      provider: "mixed";
+      recipes: PantryMixedRecipe[];
     }
   | { provider: "none"; recipes: unknown[]; message?: string };
 
+function collectPantryTitles(data: PantryOnlyResponse | null): string[] {
+  if (!data || data.provider === "none") return [];
+  if (data.provider === "spoonacular") {
+    return data.recipes.map((r) => r.title);
+  }
+  if (data.provider === "openai") {
+    return data.recipes.map((r) => r.title);
+  }
+  return data.recipes.map((r) => r.title);
+}
+
 export function RecipesClient() {
-  const [suggest, setSuggest] = useState<SuggestResponse | null>(null);
-  const [suggestLoading, setSuggestLoading] = useState(true);
-  const [searchQ, setSearchQ] = useState("");
-  const [searchResults, setSearchResults] = useState<
-    {
-      spoonacularId: number;
-      title: string;
-      image: string | null;
-      readyInMinutes: number | null;
-      caloriesPerServing: number | null;
-    }[]
-  >([]);
-  const [searching, setSearching] = useState(false);
   const [saved, setSaved] = useState<RecipeWithLines[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
 
   const [pantryOnly, setPantryOnly] = useState<PantryOnlyResponse | null>(null);
   const [pantryLoading, setPantryLoading] = useState(true);
+  const [excludedPantryTitles, setExcludedPantryTitles] = useState<string[]>(
+    [],
+  );
 
   const [detail, setDetail] = useState<RecipeWithLines | null>(null);
   const [editLines, setEditLines] = useState("");
@@ -140,24 +116,19 @@ export function RecipesClient() {
   const [newLines, setNewLines] = useState("");
   const [savingNew, setSavingNew] = useState(false);
 
-  const loadSuggest = useCallback(async () => {
-    setSuggestLoading(true);
-    try {
-      const data = await jsonFetch<SuggestResponse>("/api/recipes/suggest");
-      setSuggest(data);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load suggestions");
-    } finally {
-      setSuggestLoading(false);
-    }
-  }, []);
-
-  const loadPantryOnly = useCallback(async () => {
+  const loadPantryOnly = useCallback(async (excludeList: string[] = []) => {
     setPantryLoading(true);
     try {
-      const data = await jsonFetch<PantryOnlyResponse>(
-        "/api/recipes/pantry-only",
-      );
+      const params = new URLSearchParams();
+      for (const t of excludeList) {
+        const s = t.trim();
+        if (s) params.append("exclude", s);
+      }
+      const qs = params.toString();
+      const url = qs
+        ? `/api/recipes/pantry-only?${qs}`
+        : "/api/recipes/pantry-only";
+      const data = await jsonFetch<PantryOnlyResponse>(url);
       setPantryOnly(data);
     } catch (e) {
       toast.error(
@@ -167,6 +138,19 @@ export function RecipesClient() {
       setPantryLoading(false);
     }
   }, []);
+
+  function showMorePantryIdeas() {
+    if (!pantryOnly || pantryOnly.provider === "none") return;
+    const seen = collectPantryTitles(pantryOnly);
+    const next = [...new Set([...excludedPantryTitles, ...seen])];
+    setExcludedPantryTitles(next);
+    void loadPantryOnly(next);
+  }
+
+  function resetPantryExclusions() {
+    setExcludedPantryTitles([]);
+    void loadPantryOnly([]);
+  }
 
   const loadSaved = useCallback(async () => {
     setSavedLoading(true);
@@ -189,32 +173,9 @@ export function RecipesClient() {
   }, []);
 
   useEffect(() => {
-    void loadSuggest();
-    void loadPantryOnly();
+    void loadPantryOnly([]);
     void loadSaved();
-  }, [loadSuggest, loadPantryOnly, loadSaved]);
-
-  async function runSearch() {
-    const q = searchQ.trim();
-    if (!q) return;
-    setSearching(true);
-    try {
-      const data = await jsonFetch<{
-        recipes: {
-          spoonacularId: number;
-          title: string;
-          image: string | null;
-          readyInMinutes: number | null;
-          caloriesPerServing: number | null;
-        }[];
-      }>(`/api/recipes/search?q=${encodeURIComponent(q)}`);
-      setSearchResults(data.recipes);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Search failed");
-    } finally {
-      setSearching(false);
-    }
-  }
+  }, [loadPantryOnly, loadSaved]);
 
   async function saveFromSpoonacular(id: number, source: "suggested" | "searched") {
     try {
@@ -361,25 +322,13 @@ export function RecipesClient() {
 
   return (
     <div className="space-y-8 md:space-y-10">
-      <Tabs defaultValue="suggested" className="w-full">
-        <TabsList className="bg-muted/60 grid h-12 w-full max-w-2xl grid-cols-4 gap-1 rounded-2xl p-1 ring-1 ring-border/60">
-          <TabsTrigger
-            value="suggested"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
-          >
-            For you
-          </TabsTrigger>
+      <Tabs defaultValue="pantry-only" className="w-full">
+        <TabsList className="bg-muted/60 grid h-12 w-full max-w-md grid-cols-2 gap-1 rounded-2xl p-1 ring-1 ring-border/60">
           <TabsTrigger
             value="pantry-only"
             className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
           >
-            Pantry only
-          </TabsTrigger>
-          <TabsTrigger
-            value="search"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
-          >
-            Search
+            From pantry
           </TabsTrigger>
           <TabsTrigger
             value="saved"
@@ -389,129 +338,6 @@ export function RecipesClient() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="suggested" className="space-y-6 pt-6">
-          {suggestLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-[22rem] rounded-2xl" />
-              ))}
-            </div>
-          ) : suggest?.provider === "none" ? (
-            <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
-              <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                {suggest.message ?? "Add ingredients to see suggestions."}
-              </p>
-            </div>
-          ) : suggest?.provider === "spoonacular" ? (
-            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {suggest.recipes.map((r) => {
-                const used = r.usedIngredientCount ?? 0;
-                const missed = r.missedIngredientCount ?? 0;
-                return (
-                  <FadeItem key={r.spoonacularId}>
-                    <LiftHover>
-                      <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
-                        <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
-                          {r.image ? (
-                            <Image
-                              src={r.image}
-                              alt=""
-                              fill
-                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                              sizes="(max-width:1024px) 50vw, 33vw"
-                            />
-                          ) : (
-                            <RecipeImageLoader
-                              title={r.title}
-                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                            />
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                            <span className="rounded-full border border-white/25 bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-md">
-                              Match {used}
-                            </span>
-                            {missed > 0 ? (
-                              <span className="rounded-full border border-terracotta/50 bg-terracotta/95 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
-                                Shop {missed}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="absolute inset-x-0 bottom-0 p-4">
-                            <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
-                              {r.title}
-                            </CardTitle>
-                            <CardDescription className="mt-1 text-xs text-white/80">
-                              Curated for your pantry
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
-                          <Button
-                            size="lg"
-                            className="min-h-11 w-full touch-manipulation"
-                            onClick={() =>
-                              void saveFromSpoonacular(r.spoonacularId, "suggested")
-                            }
-                          >
-                            <BookmarkPlus className="size-4" />
-                            Save to library
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </LiftHover>
-                  </FadeItem>
-                );
-              })}
-            </Stagger>
-          ) : (
-            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {suggest?.provider === "openai" &&
-                suggest.recipes.map((r) => (
-                  <FadeItem key={r.aiId}>
-                    <LiftHover>
-                      <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
-                        <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
-                          <RecipeImageLoader
-                            title={r.title}
-                            className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                            <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
-                              AI generated
-                            </span>
-                          </div>
-                          <div className="absolute inset-x-0 bottom-0 p-4">
-                            <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
-                              {r.title}
-                            </CardTitle>
-                            <CardDescription className="mt-1 line-clamp-2 text-xs text-white/80">
-                              {(r.ingredients ?? []).join(", ")}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
-                          <Button
-                            size="lg"
-                            className="min-h-11 w-full touch-manipulation"
-                            onClick={() =>
-                              void saveFromOpenAI(r.title, r.ingredients ?? [])
-                            }
-                          >
-                            <BookmarkPlus className="size-4" />
-                            Save to library
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </LiftHover>
-                  </FadeItem>
-                ))}
-            </Stagger>
-          )}
-        </TabsContent>
-
         <TabsContent value="pantry-only" className="space-y-6 pt-6">
           {pantryLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -519,7 +345,14 @@ export function RecipesClient() {
                 <Skeleton key={i} className="h-[22rem] rounded-2xl" />
               ))}
             </div>
-          ) : pantryOnly?.provider === "none" ? (
+          ) : !pantryOnly ? (
+            <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
+              <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Could not load pantry ideas. Try again.
+              </p>
+            </div>
+          ) : pantryOnly.provider === "none" ? (
             <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
               <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
               <p className="text-muted-foreground text-sm leading-relaxed">
@@ -527,213 +360,276 @@ export function RecipesClient() {
                   "Add ingredients or configure recipe APIs to see pantry-only ideas."}
               </p>
             </div>
-          ) : pantryOnly?.provider === "spoonacular" ? (
-            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {pantryOnly.recipes.map((r) => {
-                const missed = r.missedIngredientCount ?? 0;
-                return (
-                  <FadeItem key={r.spoonacularId}>
-                    <LiftHover>
-                      <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
-                        <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
-                          {r.image ? (
-                            <Image
-                              src={r.image}
-                              alt=""
-                              fill
-                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                              sizes="(max-width:1024px) 50vw, 33vw"
-                            />
-                          ) : (
-                            <RecipeImageLoader
-                              title={r.title}
-                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                            />
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                            <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
-                              {r.usedIngredientCount} of your ingredients
-                            </span>
-                            {missed > 0 ? (
-                              <span className="rounded-full border border-amber-400/50 bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-50 backdrop-blur-md">
-                                +{missed} extra{missed === 1 ? "" : "s"}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="absolute inset-x-0 bottom-0 p-4">
-                            <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
-                              {r.title}
-                            </CardTitle>
-                            <CardDescription className="mt-1 text-xs text-white/80">
-                              {missed === 0
-                                ? "No shopping needed"
-                                : "Mostly from your pantry"}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
-                          <Button
-                            size="lg"
-                            className="min-h-11 w-full touch-manipulation"
-                            onClick={() =>
-                              void saveFromSpoonacular(
-                                r.spoonacularId,
-                                "suggested",
-                              )
-                            }
-                          >
-                            <BookmarkPlus className="size-4" />
-                            Save to library
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    </LiftHover>
-                  </FadeItem>
-                );
-              })}
-            </Stagger>
-          ) : pantryOnly?.provider === "openai" ? (
-            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {pantryOnly.recipes.map((r) => (
-                <FadeItem key={r.aiId}>
-                  <LiftHover>
-                    <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
-                      <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
-                        <RecipeImageLoader
-                          title={r.title}
-                          className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
-                            Pantry only
-                          </span>
-                          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
-                            AI generated
-                          </span>
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 p-4">
-                          <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
-                            {r.title}
-                          </CardTitle>
-                          <CardDescription className="mt-1 line-clamp-2 text-xs text-white/80">
-                            {(r.ingredients ?? []).join(", ")}
-                          </CardDescription>
-                        </div>
-                      </div>
-                      <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
-                        <Button
-                          size="lg"
-                          className="min-h-11 w-full touch-manipulation"
-                          onClick={() =>
-                            void saveFromOpenAI(r.title, r.ingredients ?? [])
-                          }
-                        >
-                          <BookmarkPlus className="size-4" />
-                          Save to library
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </LiftHover>
-                </FadeItem>
-              ))}
-            </Stagger>
-          ) : null}
-        </TabsContent>
-
-        <TabsContent value="search" className="space-y-6 pt-6">
-          <div className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-stretch">
-            <Input
-              placeholder="Search recipes…"
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              className="h-11 min-h-11 flex-1 rounded-xl border-border/80 text-base shadow-sm sm:text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void runSearch();
-              }}
-            />
-            <Button
-              className="min-h-11 shrink-0 rounded-xl px-6"
-              onClick={() => void runSearch()}
-              disabled={searching}
-            >
-              {searching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Search className="size-4" />
-              )}
-              Search
-            </Button>
-          </div>
-          <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {searchResults.map((r) => {
-              const prep = formatPrep(r.readyInMinutes);
-              const diff = difficultyFromMinutes(r.readyInMinutes);
-              const cal = r.caloriesPerServing;
-              return (
-                <FadeItem key={r.spoonacularId}>
-                  <LiftHover>
-                    <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
-                      <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
-                        {r.image ? (
-                          <Image
-                            src={r.image}
-                            alt=""
-                            fill
-                            className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                            sizes="(max-width:1024px) 50vw, 33vw"
-                          />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-muted-foreground max-w-xl text-sm">
+                  Ideas use your pantry plus assumed seasonings and oils. AI picks
+                  diverse cuisines; Spoonacular matches may appear at the end
+                  when both APIs are on.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="min-h-11 rounded-xl"
+                    disabled={pantryLoading}
+                    onClick={() => resetPantryExclusions()}
+                  >
+                    Start over
+                  </Button>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="min-h-11 rounded-xl"
+                    disabled={pantryLoading}
+                    onClick={() => showMorePantryIdeas()}
+                  >
+                    <RefreshCw className="size-4" />
+                    Show me more
+                  </Button>
+                </div>
+              </div>
+              <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {pantryOnly.provider === "spoonacular"
+                  ? pantryOnly.recipes.map((r) => {
+                      const missed = r.missedIngredientCount ?? 0;
+                      return (
+                        <FadeItem key={r.spoonacularId}>
+                          <LiftHover>
+                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                              <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                                {r.image ? (
+                                  <Image
+                                    src={r.image}
+                                    alt=""
+                                    fill
+                                    className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                    sizes="(max-width:1024px) 50vw, 33vw"
+                                  />
+                                ) : (
+                                  <RecipeImageLoader
+                                    title={r.title}
+                                    className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                  />
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                                <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                                  <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                                    {r.usedIngredientCount} of your ingredients
+                                  </span>
+                                  {missed > 0 ? (
+                                    <span className="rounded-full border border-amber-400/50 bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-50 backdrop-blur-md">
+                                      +{missed} extra{missed === 1 ? "" : "s"}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="absolute inset-x-0 bottom-0 p-4">
+                                  <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                    {r.title}
+                                  </CardTitle>
+                                  <CardDescription className="mt-1 text-xs text-white/80">
+                                    {missed === 0
+                                      ? "No shopping needed"
+                                      : "Mostly from your pantry"}
+                                  </CardDescription>
+                                </div>
+                              </div>
+                              <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                <Button
+                                  size="lg"
+                                  className="min-h-11 w-full touch-manipulation"
+                                  onClick={() =>
+                                    void saveFromSpoonacular(
+                                      r.spoonacularId,
+                                      "suggested",
+                                    )
+                                  }
+                                >
+                                  <BookmarkPlus className="size-4" />
+                                  Save to library
+                                </Button>
+                              </CardFooter>
+                            </Card>
+                          </LiftHover>
+                        </FadeItem>
+                      );
+                    })
+                  : pantryOnly.provider === "openai"
+                    ? pantryOnly.recipes.map((r) => (
+                        <FadeItem key={r.aiId}>
+                          <LiftHover>
+                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                              <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                                <RecipeImageLoader
+                                  title={r.title}
+                                  className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                                <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5">
+                                  <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                                    Pantry
+                                  </span>
+                                  <span className="rounded-full border border-sky-400/40 bg-sky-950/50 px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-sky-50 backdrop-blur-md">
+                                    {r.cuisine}
+                                  </span>
+                                  <span className="rounded-full border border-amber-400/40 bg-amber-950/50 px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-amber-50 backdrop-blur-md">
+                                    {r.meal_type}
+                                  </span>
+                                  <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
+                                    AI
+                                  </span>
+                                </div>
+                                <div className="absolute inset-x-0 bottom-0 p-4">
+                                  <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                    {r.title}
+                                  </CardTitle>
+                                  <CardDescription className="mt-1 line-clamp-3 text-xs text-white/85">
+                                    {r.description?.trim()
+                                      ? r.description
+                                      : (r.ingredients ?? []).join(", ")}
+                                  </CardDescription>
+                                </div>
+                              </div>
+                              <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                <Button
+                                  size="lg"
+                                  className="min-h-11 w-full touch-manipulation"
+                                  onClick={() =>
+                                    void saveFromOpenAI(
+                                      r.title,
+                                      r.ingredients ?? [],
+                                    )
+                                  }
+                                >
+                                  <BookmarkPlus className="size-4" />
+                                  Save to library
+                                </Button>
+                              </CardFooter>
+                            </Card>
+                          </LiftHover>
+                        </FadeItem>
+                      ))
+                    : pantryOnly.recipes.map((r) =>
+                        r.type === "spoonacular" ? (
+                          <FadeItem key={`sp-${r.spoonacularId}`}>
+                            <LiftHover>
+                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                                <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                                  {r.image ? (
+                                    <Image
+                                      src={r.image}
+                                      alt=""
+                                      fill
+                                      className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                      sizes="(max-width:1024px) 50vw, 33vw"
+                                    />
+                                  ) : (
+                                    <RecipeImageLoader
+                                      title={r.title}
+                                      className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                    />
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                                  <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                                    <span className="rounded-full border border-cyan-400/40 bg-cyan-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-50 backdrop-blur-md">
+                                      Spoonacular
+                                    </span>
+                                    <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                                      {r.usedIngredientCount} matched
+                                    </span>
+                                    {(r.missedIngredientCount ?? 0) > 0 ? (
+                                      <span className="rounded-full border border-amber-400/50 bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-50 backdrop-blur-md">
+                                        +{r.missedIngredientCount} extra
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <div className="absolute inset-x-0 bottom-0 p-4">
+                                    <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                      {r.title}
+                                    </CardTitle>
+                                    <CardDescription className="mt-1 text-xs text-white/80">
+                                      From recipe database
+                                    </CardDescription>
+                                  </div>
+                                </div>
+                                <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                  <Button
+                                    size="lg"
+                                    className="min-h-11 w-full touch-manipulation"
+                                    onClick={() =>
+                                      void saveFromSpoonacular(
+                                        r.spoonacularId,
+                                        "suggested",
+                                      )
+                                    }
+                                  >
+                                    <BookmarkPlus className="size-4" />
+                                    Save to library
+                                  </Button>
+                                </CardFooter>
+                              </Card>
+                            </LiftHover>
+                          </FadeItem>
                         ) : (
-                          <RecipeImageLoader
-                            title={r.title}
-                            className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                          {prep ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-md">
-                              <Timer className="size-3 opacity-90" />
-                              {prep}
-                            </span>
-                          ) : null}
-                          {diff ? (
-                            <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
-                              {diff}
-                            </span>
-                          ) : null}
-                          {cal != null ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/35 bg-amber-950/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-50 backdrop-blur-md">
-                              <Flame className="size-3 opacity-90" />
-                              {cal} kcal
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 p-4">
-                          <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
-                            {r.title}
-                          </CardTitle>
-                        </div>
-                      </div>
-                      <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
-                        <Button
-                          size="lg"
-                          className="min-h-11 w-full touch-manipulation"
-                          onClick={() =>
-                            void saveFromSpoonacular(r.spoonacularId, "searched")
-                          }
-                        >
-                          <BookmarkPlus className="size-4" />
-                          Save
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  </LiftHover>
-                </FadeItem>
-              );
-            })}
-          </Stagger>
+                          <FadeItem key={r.aiId}>
+                            <LiftHover>
+                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                                <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                                  <RecipeImageLoader
+                                    title={r.title}
+                                    className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                                  <div className="absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1.5">
+                                    <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                                      Pantry
+                                    </span>
+                                    <span className="rounded-full border border-sky-400/40 bg-sky-950/50 px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-sky-50 backdrop-blur-md">
+                                      {r.cuisine}
+                                    </span>
+                                    <span className="rounded-full border border-amber-400/40 bg-amber-950/50 px-2.5 py-0.5 text-[10px] font-semibold capitalize tracking-wide text-amber-50 backdrop-blur-md">
+                                      {r.meal_type}
+                                    </span>
+                                    <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
+                                      AI
+                                    </span>
+                                  </div>
+                                  <div className="absolute inset-x-0 bottom-0 p-4">
+                                    <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                      {r.title}
+                                    </CardTitle>
+                                    <CardDescription className="mt-1 line-clamp-3 text-xs text-white/85">
+                                      {r.description?.trim()
+                                        ? r.description
+                                        : (r.ingredients ?? []).join(", ")}
+                                    </CardDescription>
+                                  </div>
+                                </div>
+                                <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                  <Button
+                                    size="lg"
+                                    className="min-h-11 w-full touch-manipulation"
+                                    onClick={() =>
+                                      void saveFromOpenAI(
+                                        r.title,
+                                        r.ingredients ?? [],
+                                      )
+                                    }
+                                  >
+                                    <BookmarkPlus className="size-4" />
+                                    Save to library
+                                  </Button>
+                                </CardFooter>
+                              </Card>
+                            </LiftHover>
+                          </FadeItem>
+                        ),
+                      )}
+              </Stagger>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="saved" className="space-y-6 pt-6">
@@ -751,7 +647,7 @@ export function RecipesClient() {
           ) : saved.length === 0 ? (
             <div className="border-terracotta/20 from-muted/40 rounded-2xl border border-dashed px-6 py-12 text-center">
               <p className="text-muted-foreground text-sm leading-relaxed">
-                No saved recipes yet. Save from suggestions or create your own.
+                No saved recipes yet. Save a match from Pantry, or use New recipe.
               </p>
             </div>
           ) : (

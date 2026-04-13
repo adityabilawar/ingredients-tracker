@@ -34,9 +34,9 @@ export function DashboardOverview({
 }) {
   const stats = [
     {
-      label: "My pantry",
+      label: "Pantry",
       value: ingCount,
-      hint: "Ingredients on hand",
+      hint: "Items on hand",
       icon: Salad,
       href: "/ingredients",
       accent: "from-emerald-600/15 to-herb/10",
@@ -52,7 +52,7 @@ export function DashboardOverview({
     {
       label: "Recipes",
       value: recipeCount,
-      hint: "Saved ideas",
+      hint: "Saved",
       icon: ChefHat,
       href: "/recipes",
       accent: "from-terracotta/15 to-amber-500/10",
@@ -69,68 +69,11 @@ export function DashboardOverview({
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 md:gap-14">
-      <section className="relative overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.06] md:rounded-3xl">
-        <div className="absolute inset-0">
-          <Image
-            src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1600&q=80"
-            alt=""
-            fill
-            className="object-cover opacity-35 dark:opacity-25"
-            sizes="100vw"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/92 to-background/55 dark:from-background dark:via-background/95 dark:to-background/70" />
-          <div className="from-herb/8 absolute inset-0 bg-gradient-to-tl to-transparent" />
-        </div>
-        <div className="relative grid gap-8 p-6 md:grid-cols-[1.1fr_0.9fr] md:items-center md:p-10 lg:p-12">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease }}
-          >
-            <p className="text-terracotta mb-2 text-xs font-semibold uppercase tracking-[0.2em]">
-              Today in your kitchen
-            </p>
-            <h1 className="font-heading text-3xl leading-[1.1] font-semibold tracking-tight text-foreground md:text-4xl lg:text-[2.65rem]">
-              Cook with clarity.{" "}
-              <span className="text-gradient-herb">Track less, taste more.</span>
-            </h1>
-            <p className="text-muted-foreground mt-4 max-w-lg text-pretty text-sm leading-relaxed md:text-base">
-              A calm home for pantry staples, saved recipes, and the week ahead —
-              designed around how you actually cook.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Link href="/ingredients" className={cn(buttonVariants({ size: "lg" }))}>
-                Stock pantry
-              </Link>
-              <Link
-                href="/recipes"
-                className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
-              >
-                Find recipes
-              </Link>
-            </div>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.55, ease, delay: 0.08 }}
-            className="relative hidden aspect-[4/3] overflow-hidden rounded-2xl border border-white/50 shadow-lg md:block dark:border-white/10"
-          >
-            <Image
-              src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=900&q=80"
-              alt=""
-              fill
-              className="object-cover"
-              sizes="(min-width: 768px) 40vw, 0px"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
-            <p className="absolute bottom-4 left-4 right-4 font-heading text-lg font-medium text-white drop-shadow-sm">
-              Fresh picks, warm plates
-            </p>
-          </motion.div>
-        </div>
-      </section>
+      <header className="flex flex-col gap-1">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+          Home
+        </h1>
+      </header>
 
       <Stagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((s) => (
@@ -177,9 +120,6 @@ export function DashboardOverview({
               <h2 className="font-heading text-lg font-semibold tracking-tight">
                 Quick actions
               </h2>
-              <p className="text-muted-foreground text-sm">
-                Jump between pantry, recipes, and planning
-              </p>
             </div>
           </div>
           <Card className="border-border/80 bg-card/95 py-6 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
@@ -197,7 +137,7 @@ export function DashboardOverview({
                 href="/recipes"
                 className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
               >
-                Browse recipes
+                Recipes
               </Link>
               <Link
                 href="/meal-plan"
