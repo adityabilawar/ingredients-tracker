@@ -195,13 +195,13 @@ export function MealPlanClient() {
       {loading ? (
         <Skeleton className="h-[28rem] w-full rounded-2xl" />
       ) : recipes.length === 0 ? (
-        <div className="border-terracotta/20 from-muted/50 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
+        <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
           <p className="text-muted-foreground text-sm leading-relaxed">
             Save at least one recipe before planning meals.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border/70 bg-card/40 p-2 shadow-inner ring-1 ring-black/[0.02] dark:bg-card/20 dark:ring-white/[0.04]">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card p-2">
           <div className="grid min-w-[760px] grid-cols-8 gap-2.5 p-2 text-sm">
             <div className="text-muted-foreground flex items-end p-2 pb-3 text-xs font-semibold uppercase tracking-wide">
               Meal
@@ -209,9 +209,9 @@ export function MealPlanClient() {
             {days.map((d) => (
               <div
                 key={fmt(d)}
-                className="rounded-xl border border-border/50 bg-muted/30 p-2 text-center shadow-sm"
+                className="rounded-lg border border-border bg-muted p-2 text-center"
               >
-                <div className="font-heading text-sm font-semibold">
+                <div className="text-sm font-semibold">
                   {d.toLocaleDateString(undefined, { weekday: "short" })}
                 </div>
                 <div className="text-muted-foreground text-xs tabular-nums">
@@ -224,7 +224,7 @@ export function MealPlanClient() {
             ))}
             {MEALS.map((meal) => (
               <Fragment key={meal}>
-                <div className="bg-herb-muted/50 text-herb flex items-center rounded-xl border border-primary/10 px-3 py-4 text-xs font-semibold capitalize tracking-wide">
+                <div className="bg-muted text-foreground flex items-center rounded-lg px-3 py-4 text-xs font-semibold capitalize tracking-wide">
                   {meal}
                 </div>
                 {days.map((d) => {
@@ -234,12 +234,12 @@ export function MealPlanClient() {
                   return (
                     <Card
                       key={`${dateStr}-${meal}`}
-                      className="h-full overflow-hidden rounded-xl border-border/70 py-0 shadow-sm transition-shadow hover:shadow-md"
+                      className="h-full overflow-hidden rounded-lg border-border py-0 transition-shadow hover:shadow-sm"
                     >
                       <CardHeader className="space-y-2 p-2.5">
                         {e ? (
                           <>
-                            <div className="bg-muted relative aspect-[5/3] w-full overflow-hidden rounded-lg border border-border/60">
+                            <div className="bg-muted relative aspect-[5/3] w-full overflow-hidden rounded-lg">
                               {thumb ? (
                                 <Image
                                   src={thumb}
@@ -286,7 +286,7 @@ export function MealPlanClient() {
                           <Button
                             variant="secondary"
                             size="sm"
-                            className="h-24 w-full flex-col gap-1 rounded-xl border border-dashed border-border/80 text-xs font-medium"
+                            className="h-24 w-full flex-col gap-1 rounded-lg border border-dashed border-border text-xs font-medium"
                             onClick={() => setPicker({ date: dateStr, meal })}
                           >
                             <span className="text-lg leading-none">+</span>
@@ -305,7 +305,7 @@ export function MealPlanClient() {
       )}
 
       <Dialog open={!!picker} onOpenChange={(o) => !o && setPicker(null)}>
-        <DialogContent className="border-border/80 sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Assign recipe</DialogTitle>
           </DialogHeader>

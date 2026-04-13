@@ -9,7 +9,6 @@ import {
   Menu,
   Pill,
   Salad,
-  Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -38,9 +38,9 @@ const nav = [
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
-    <nav className="flex flex-col gap-1 p-3">
-      <p className="text-muted-foreground px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em]">
-        Navigate
+    <nav className="flex flex-col gap-0.5 p-3">
+      <p className="text-muted-foreground px-3 pb-2 pt-1 text-[11px] font-medium uppercase tracking-widest">
+        Menu
       </p>
       {nav.map(({ href, label, icon: Icon }) => {
         const active =
@@ -53,22 +53,14 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             href={href}
             onClick={onNavigate}
             className={cn(
-              "relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200",
+              "flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
               active
-                ? "text-primary bg-herb-muted/80 border border-primary/15 shadow-sm"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/70 border border-transparent",
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
             )}
           >
-            {active ? (
-              <span className="bg-primary/8 pointer-events-none absolute inset-0 rounded-xl" />
-            ) : null}
-            <Icon
-              className={cn(
-                "relative z-10 size-[18px] shrink-0",
-                active ? "text-primary" : "opacity-80",
-              )}
-            />
-            <span className="relative z-10">{label}</span>
+            <Icon className="size-4 shrink-0" />
+            <span>{label}</span>
           </Link>
         );
       })}
@@ -98,57 +90,48 @@ export function AppShell({
 
   return (
     <div className="flex min-h-svh w-full">
-      <aside className="bg-sidebar/95 text-sidebar-foreground relative hidden w-[17rem] shrink-0 flex-col border-r border-sidebar-border/80 shadow-[inset_-1px_0_0_rgba(0,0,0,0.02)] backdrop-blur-md md:flex dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.04)]">
-        <div className="from-herb/12 absolute inset-x-0 top-0 h-40 bg-gradient-to-b to-transparent" />
-        <div className="relative flex h-[4.25rem] items-center gap-3 border-b border-sidebar-border/70 px-5">
-          <div className="bg-primary/12 text-primary flex size-10 items-center justify-center rounded-xl border border-primary/15 shadow-sm">
-            <Sparkles className="size-5" />
-          </div>
-          <div className="min-w-0">
-            <span className="font-heading text-lg font-semibold tracking-tight">
-              Pantry
-            </span>
-            <p className="text-muted-foreground truncate text-xs">Ingredients & meals</p>
-          </div>
+      <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r border-sidebar-border md:flex">
+        <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-5">
+          <span className="text-[15px] font-semibold tracking-tight">
+            Pantry
+          </span>
         </div>
         <NavLinks />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-background/75 supports-[backdrop-filter]:bg-background/55 sticky top-0 z-40 flex min-h-14 items-center gap-2 border-b border-border/60 px-3 py-2 backdrop-blur-xl md:px-6">
+        <header className="bg-background/80 sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border px-3 backdrop-blur-xl md:px-6">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "size-11 shrink-0 md:hidden",
+                "size-9 shrink-0 md:hidden",
               )}
             >
               <Menu className="size-5" />
               <span className="sr-only">Open menu</span>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[min(100%,20rem)] border-sidebar-border/80 bg-sidebar/98 p-0">
-              <div className="flex h-14 items-center gap-3 border-b border-sidebar-border/80 px-4">
-                <div className="bg-primary/12 text-primary flex size-9 items-center justify-center rounded-lg border border-primary/15">
-                  <Sparkles className="size-4" />
-                </div>
-                <span className="font-heading font-semibold">Pantry</span>
+            <SheetContent side="left" className="w-60 border-sidebar-border bg-sidebar p-0">
+              <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
+                <span className="text-[15px] font-semibold">Pantry</span>
               </div>
               <NavLinks onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
-          <div className="flex flex-1 items-center justify-end gap-2">
+          <div className="flex flex-1 items-center justify-end gap-1">
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "default" }),
-                  "h-11 min-h-11 gap-2 rounded-full border border-transparent px-2 hover:border-border hover:bg-muted/60",
+                  "h-9 gap-2 rounded-full px-2 hover:bg-accent",
                 )}
               >
-                <Avatar className="size-9 ring-2 ring-background">
+                <Avatar className="size-7">
                   <AvatarImage src={meta?.avatar_url} alt="" />
-                  <AvatarFallback>{initial}</AvatarFallback>
+                  <AvatarFallback className="text-xs">{initial}</AvatarFallback>
                 </Avatar>
-                <span className="hidden max-w-[160px] truncate text-sm font-medium sm:inline">
+                <span className="hidden max-w-[140px] truncate text-[13px] font-medium sm:inline">
                   {display}
                 </span>
               </DropdownMenuTrigger>

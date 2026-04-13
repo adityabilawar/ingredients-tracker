@@ -3,6 +3,8 @@ import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { resolveRecipeImage } from "@/lib/images";
 
+const CACHE_CONTROL_SUCCESS = "private, max-age=86400";
+
 export async function GET(req: Request) {
   try {
     getServerEnv();
@@ -28,6 +30,26 @@ export async function GET(req: Request) {
       { status: 400 },
     );
 
+  const recipeId = searchParams.get("recipeId")?.trim() ?? null;
+
   const resolved = await resolveRecipeImage(title, user.id);
-  return NextResponse.json({ imageUrl: resolved.imageUrl, source: resolved.source });
+
+  if (
+    recipeId &&
+    resolved.source !== "placeholder" &&
+    resolved.imageUrl
+  ) {
+    await supabase
+      .from("recipes")
+      .update({ thumbnail_url: resolved.imageUrl })
+      .eq("id", recipeId)
+      .eq("user_id", user.id);
+  }
+
+  return NextResponse.json(
+    { imageUrl: resolved.imageUrl, source: resolved.source },
+    {
+      headers: { "Cache-Control": CACHE_CONTROL_SUCCESS },
+    },
+  );
 }

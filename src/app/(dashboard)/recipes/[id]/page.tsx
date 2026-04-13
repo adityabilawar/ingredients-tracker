@@ -52,10 +52,9 @@ export default async function RecipeDetailPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-sm ring-1 ring-black/[0.03] md:rounded-3xl dark:ring-white/[0.05]">
-        <div className="from-terracotta/12 pointer-events-none absolute -left-24 -top-16 size-56 rounded-full bg-gradient-to-br to-herb/10 blur-3xl" />
-        <div className="relative grid gap-6 p-6 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-8 md:p-8">
-          <div className="bg-muted relative aspect-[16/10] w-full overflow-hidden rounded-2xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]">
+      <header className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-8 md:p-8">
+          <div className="bg-muted relative aspect-[16/10] w-full overflow-hidden rounded-lg">
             {recipe.thumbnail_url ? (
               <Image
                 src={recipe.thumbnail_url}
@@ -71,6 +70,8 @@ export default async function RecipeDetailPage({ params }: PageProps) {
               />
             ) : (
               <RecipeImageLoader
+                key={recipe.id}
+                recipeId={recipe.id}
                 title={recipe.name}
                 className="object-cover"
                 sizes="(max-width:768px) 100vw, 50vw"
@@ -80,11 +81,11 @@ export default async function RecipeDetailPage({ params }: PageProps) {
           </div>
           <div className="flex flex-col justify-center space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-muted text-muted-foreground rounded-full border border-border/80 px-3 py-1 text-xs font-medium capitalize">
+              <span className="bg-muted text-muted-foreground rounded-full border border-border px-3 py-1 text-xs font-medium capitalize">
                 {recipe.source}
               </span>
             </div>
-            <h1 className="font-heading text-3xl font-semibold tracking-tight md:text-4xl">
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
               {recipe.name}
             </h1>
             <div>

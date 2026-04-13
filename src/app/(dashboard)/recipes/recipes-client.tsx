@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookmarkPlus,
   ChefHat,
+  Loader2,
   Pencil,
   RefreshCw,
   Trash2,
@@ -30,7 +31,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
 import { LiftHover, Stagger, FadeItem } from "@/components/motion-primitives";
 import { RecipeImageLoader } from "@/components/recipe-image-loader";
 
@@ -96,9 +96,38 @@ function collectPantryTitles(data: PantryOnlyResponse | null): string[] {
   return data.recipes.map((r) => r.title);
 }
 
+function RecipesFetchLoading({ subtitle }: { subtitle: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-[min(28rem,calc(100vh-14rem))] flex-col items-center justify-center gap-6 rounded-xl border border-border px-6 py-16"
+    >
+      <div className="flex size-16 items-center justify-center rounded-xl bg-muted">
+        <Loader2
+          className="text-primary size-9 animate-spin"
+          aria-hidden
+        />
+      </div>
+      <div className="max-w-sm space-y-2 text-center">
+        <p className="text-xl font-semibold tracking-tight">
+          Loading recipes
+        </p>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          {subtitle}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function RecipesClient() {
   const [saved, setSaved] = useState<RecipeWithLines[]>([]);
-  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedLoading, setSavedLoading] = useState(false);
+
+  const pantryBootstrappedRef = useRef(false);
+  const savedLoadedRef = useRef(false);
+  const [activeTab, setActiveTab] = useState("pantry-only");
 
   const [pantryOnly, setPantryOnly] = useState<PantryOnlyResponse | null>(null);
   const [pantryLoading, setPantryLoading] = useState(true);
@@ -165,6 +194,7 @@ export function RecipesClient() {
         ),
       }));
       setSaved(list);
+      savedLoadedRef.current = true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to load recipes");
     } finally {
@@ -173,9 +203,17 @@ export function RecipesClient() {
   }, []);
 
   useEffect(() => {
+    if (pantryBootstrappedRef.current) return;
+    pantryBootstrappedRef.current = true;
     void loadPantryOnly([]);
-    void loadSaved();
-  }, [loadPantryOnly, loadSaved]);
+  }, [loadPantryOnly]);
+
+  function handleTabChange(value: string) {
+    setActiveTab(value);
+    if (value === "saved" && !savedLoadedRef.current) {
+      void loadSaved();
+    }
+  }
 
   async function saveFromSpoonacular(id: number, source: "suggested" | "searched") {
     try {
@@ -322,17 +360,21 @@ export function RecipesClient() {
 
   return (
     <div className="space-y-8 md:space-y-10">
-      <Tabs defaultValue="pantry-only" className="w-full">
-        <TabsList className="bg-muted/60 grid h-12 w-full max-w-md grid-cols-2 gap-1 rounded-2xl p-1 ring-1 ring-border/60">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+      >
+        <TabsList className="bg-muted grid h-11 w-full max-w-md grid-cols-2 gap-1 rounded-lg p-1">
           <TabsTrigger
             value="pantry-only"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
+            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-md font-medium"
           >
             From pantry
           </TabsTrigger>
           <TabsTrigger
             value="saved"
-            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
+            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-md font-medium"
           >
             Library
           </TabsTrigger>
@@ -340,20 +382,16 @@ export function RecipesClient() {
 
         <TabsContent value="pantry-only" className="space-y-6 pt-6">
           {pantryLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-[22rem] rounded-2xl" />
-              ))}
-            </div>
+            <RecipesFetchLoading subtitle="Matching your pantry to ideas from the recipe APIs…" />
           ) : !pantryOnly ? (
-            <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
+            <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
               <p className="text-muted-foreground text-sm leading-relaxed">
                 Could not load pantry ideas. Try again.
               </p>
             </div>
           ) : pantryOnly.provider === "none" ? (
-            <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
+            <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
               <p className="text-muted-foreground text-sm leading-relaxed">
                 {pantryOnly.message ??
@@ -398,7 +436,7 @@ export function RecipesClient() {
                       return (
                         <FadeItem key={r.spoonacularId}>
                           <LiftHover>
-                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md transition-shadow hover:shadow-lg">
                               <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
                                 {r.image ? (
                                   <Image
@@ -410,6 +448,7 @@ export function RecipesClient() {
                                   />
                                 ) : (
                                   <RecipeImageLoader
+                                    key={`sp-${r.spoonacularId}`}
                                     title={r.title}
                                     className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
                                   />
@@ -426,7 +465,7 @@ export function RecipesClient() {
                                   ) : null}
                                 </div>
                                 <div className="absolute inset-x-0 bottom-0 p-4">
-                                  <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                  <CardTitle className="line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
                                     {r.title}
                                   </CardTitle>
                                   <CardDescription className="mt-1 text-xs text-white/80">
@@ -436,7 +475,7 @@ export function RecipesClient() {
                                   </CardDescription>
                                 </div>
                               </div>
-                              <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                              <CardFooter className="border-t border-border p-4">
                                 <Button
                                   size="lg"
                                   className="min-h-11 w-full touch-manipulation"
@@ -460,9 +499,10 @@ export function RecipesClient() {
                     ? pantryOnly.recipes.map((r) => (
                         <FadeItem key={r.aiId}>
                           <LiftHover>
-                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                            <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md transition-shadow hover:shadow-lg">
                               <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
                                 <RecipeImageLoader
+                                  key={r.aiId}
                                   title={r.title}
                                   className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
                                 />
@@ -482,7 +522,7 @@ export function RecipesClient() {
                                   </span>
                                 </div>
                                 <div className="absolute inset-x-0 bottom-0 p-4">
-                                  <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                  <CardTitle className="line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
                                     {r.title}
                                   </CardTitle>
                                   <CardDescription className="mt-1 line-clamp-3 text-xs text-white/85">
@@ -492,7 +532,7 @@ export function RecipesClient() {
                                   </CardDescription>
                                 </div>
                               </div>
-                              <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                              <CardFooter className="border-t border-border p-4">
                                 <Button
                                   size="lg"
                                   className="min-h-11 w-full touch-manipulation"
@@ -515,7 +555,7 @@ export function RecipesClient() {
                         r.type === "spoonacular" ? (
                           <FadeItem key={`sp-${r.spoonacularId}`}>
                             <LiftHover>
-                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md transition-shadow hover:shadow-lg">
                                 <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
                                   {r.image ? (
                                     <Image
@@ -527,6 +567,7 @@ export function RecipesClient() {
                                     />
                                   ) : (
                                     <RecipeImageLoader
+                                      key={`sp-${r.spoonacularId}`}
                                       title={r.title}
                                       className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
                                     />
@@ -546,7 +587,7 @@ export function RecipesClient() {
                                     ) : null}
                                   </div>
                                   <div className="absolute inset-x-0 bottom-0 p-4">
-                                    <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                    <CardTitle className="line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
                                       {r.title}
                                     </CardTitle>
                                     <CardDescription className="mt-1 text-xs text-white/80">
@@ -554,7 +595,7 @@ export function RecipesClient() {
                                     </CardDescription>
                                   </div>
                                 </div>
-                                <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                <CardFooter className="border-t border-border p-4">
                                   <Button
                                     size="lg"
                                     className="min-h-11 w-full touch-manipulation"
@@ -575,9 +616,10 @@ export function RecipesClient() {
                         ) : (
                           <FadeItem key={r.aiId}>
                             <LiftHover>
-                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                              <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md transition-shadow hover:shadow-lg">
                                 <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
                                   <RecipeImageLoader
+                                    key={r.aiId}
                                     title={r.title}
                                     className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
                                   />
@@ -597,7 +639,7 @@ export function RecipesClient() {
                                     </span>
                                   </div>
                                   <div className="absolute inset-x-0 bottom-0 p-4">
-                                    <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                                    <CardTitle className="line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
                                       {r.title}
                                     </CardTitle>
                                     <CardDescription className="mt-1 line-clamp-3 text-xs text-white/85">
@@ -607,7 +649,7 @@ export function RecipesClient() {
                                     </CardDescription>
                                   </div>
                                 </div>
-                                <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                                <CardFooter className="border-t border-border p-4">
                                   <Button
                                     size="lg"
                                     className="min-h-11 w-full touch-manipulation"
@@ -633,19 +675,17 @@ export function RecipesClient() {
         </TabsContent>
 
         <TabsContent value="saved" className="space-y-6 pt-6">
+          {activeTab !== "saved" ? null : (
+            <>
           <div className="flex flex-wrap justify-end gap-2">
             <Button size="lg" className="min-h-11 rounded-xl" onClick={() => setNewOpen(true)}>
               New recipe
             </Button>
           </div>
           {savedLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-56 rounded-2xl" />
-              ))}
-            </div>
+            <RecipesFetchLoading subtitle="Fetching your saved library…" />
           ) : saved.length === 0 ? (
-            <div className="border-terracotta/20 from-muted/40 rounded-2xl border border-dashed px-6 py-12 text-center">
+            <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <p className="text-muted-foreground text-sm leading-relaxed">
                 No saved recipes yet. Save a match from Pantry, or use New recipe.
               </p>
@@ -657,7 +697,7 @@ export function RecipesClient() {
                 return (
                   <FadeItem key={r.id}>
                     <LiftHover>
-                      <Card className="group/saved overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-lg dark:ring-white/[0.06]">
+                      <Card className="group/saved overflow-hidden rounded-xl border border-border py-0 transition-shadow hover:shadow-md">
                         <div className="bg-muted relative aspect-[16/10] w-full overflow-hidden">
                           <Link
                             href={`/recipes/${r.id}`}
@@ -678,6 +718,8 @@ export function RecipesClient() {
                             />
                           ) : (
                             <RecipeImageLoader
+                              key={r.id}
+                              recipeId={r.id}
                               title={r.name}
                               className="object-cover transition duration-500 group-hover/saved:scale-[1.04]"
                               sizes="(max-width:768px) 100vw, 50vw"
@@ -719,7 +761,7 @@ export function RecipesClient() {
                             </span>
                           </div>
                           <div className="absolute inset-x-0 bottom-0 z-10 p-4 pt-12">
-                            <CardTitle className="font-heading pointer-events-none line-clamp-2 text-xl font-semibold text-white drop-shadow-md">
+                            <CardTitle className="pointer-events-none line-clamp-2 text-xl font-semibold text-white drop-shadow-md">
                               {r.name}
                             </CardTitle>
                             <Link
@@ -749,11 +791,13 @@ export function RecipesClient() {
               })}
             </Stagger>
           )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-border/80 sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           {detail ? (
             <>
               <DialogHeader>
@@ -827,7 +871,7 @@ export function RecipesClient() {
       </Dialog>
 
       <Dialog open={newOpen} onOpenChange={setNewOpen}>
-        <DialogContent className="border-border/80 sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New recipe</DialogTitle>
           </DialogHeader>

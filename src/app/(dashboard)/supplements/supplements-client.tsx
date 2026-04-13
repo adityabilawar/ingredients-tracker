@@ -182,7 +182,7 @@ export function SupplementsClient() {
             <Plus className="size-4" />
             Add supplement
           </Button>
-          <DialogContent className="border-border/80 sm:max-w-md">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>New supplement</DialogTitle>
             </DialogHeader>
@@ -213,7 +213,7 @@ export function SupplementsClient() {
 
       {/* Edit daily target dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="border-border/80 sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit daily target</DialogTitle>
           </DialogHeader>
@@ -260,8 +260,8 @@ export function SupplementsClient() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="border-muted-foreground/20 from-muted/40 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed bg-gradient-to-b to-transparent px-6 py-16 text-center">
-          <div className="bg-background/90 text-muted-foreground flex size-14 items-center justify-center rounded-2xl border shadow-sm">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border px-6 py-16 text-center">
+          <div className="bg-muted text-muted-foreground flex size-14 items-center justify-center rounded-xl">
             <Pill className="size-7 opacity-60" />
           </div>
           <p className="text-muted-foreground max-w-sm text-sm leading-relaxed">
@@ -285,9 +285,9 @@ export function SupplementsClient() {
                 <LiftHover>
                   <Card
                     className={cn(
-                      "group/card relative overflow-hidden rounded-2xl border py-0 shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-lg dark:ring-white/[0.05]",
-                      needsVisual && "border-l-4 border-l-violet-400/80",
-                      done && "ring-2 ring-emerald-500/40",
+                      "group/card relative overflow-hidden rounded-xl border border-border py-0 transition-shadow hover:shadow-md",
+                      needsVisual && "border-l-4 border-l-muted-foreground",
+                      done && "ring-2 ring-foreground/20",
                     )}
                   >
                     {/* Clickable image area to log a take */}
@@ -313,7 +313,7 @@ export function SupplementsClient() {
                           }
                         />
                       ) : (
-                        <div className="from-muted flex h-full flex-col items-center justify-center gap-2 bg-gradient-to-br to-violet-200/30 p-6 text-center dark:to-violet-950/30">
+                        <div className="bg-muted flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
                           <Pill className="text-muted-foreground size-8 opacity-40" />
                           <span className="text-muted-foreground text-xs font-medium">
                             No image yet
@@ -326,14 +326,14 @@ export function SupplementsClient() {
                       {/* Green checkmark overlay when done */}
                       {done && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                          <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30">
+                          <div className="flex size-16 items-center justify-center rounded-full bg-foreground shadow-lg">
                             <Check className="size-9 text-white" strokeWidth={3} />
                           </div>
                         </div>
                       )}
 
                       <div className="absolute inset-x-0 bottom-0 p-4">
-                        <h2 className="font-heading line-clamp-2 text-lg font-semibold leading-tight text-white drop-shadow-md">
+                        <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-white drop-shadow-md">
                           {s.name}
                         </h2>
                       </div>
@@ -344,7 +344,7 @@ export function SupplementsClient() {
                           className={cn(
                             "rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide backdrop-blur-md",
                             done
-                              ? "border-emerald-400/40 bg-emerald-500/25 text-emerald-100"
+                              ? "border-white/40 bg-white/25 text-white"
                               : "border-white/25 bg-white/15 text-white",
                           )}
                         >
@@ -353,7 +353,7 @@ export function SupplementsClient() {
                       </div>
                     </button>
 
-                    <CardFooter className="border-t border-border/60 bg-muted/30 p-3 flex items-center gap-2">
+                    <CardFooter className="border-t border-border p-3 flex items-center gap-2">
                       {!done && count > 0 && (
                         <Button
                           variant="outline"

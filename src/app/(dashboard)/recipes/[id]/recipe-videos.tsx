@@ -80,7 +80,7 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
 
   if (!youtubeConfigured) {
     return (
-      <div className="border-terracotta/25 from-muted/40 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-10 text-center">
+      <div className="rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
         <p className="text-muted-foreground text-sm leading-relaxed">
           Add a <code className="bg-muted rounded px-1.5 py-0.5 text-xs">YOUTUBE_API_KEY</code>{" "}
           to your environment to see cooking videos here. See{" "}
@@ -92,7 +92,7 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
 
   if (videos.length === 0) {
     return (
-      <div className="border-border/60 from-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-10 text-center">
+      <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-6 py-10 text-center">
         <p className="text-muted-foreground text-sm leading-relaxed">
           No YouTube results for this recipe name. Try renaming the dish on the edit
           screen and search again.
@@ -104,7 +104,7 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
+        <h2 className="text-lg font-semibold tracking-tight">
           Cooking videos
         </h2>
         <Button
@@ -128,7 +128,7 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
           return (
             <Card
               key={v.videoId}
-              className="overflow-hidden rounded-2xl border py-0 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+              className="overflow-hidden rounded-xl border border-border py-0"
             >
               {expanded ? (
                 <div className="aspect-video w-full overflow-hidden border-b">
@@ -166,7 +166,7 @@ export function RecipeVideos({ recipeId }: { recipeId: string }) {
                 </button>
               )}
               <CardHeader className="space-y-1 p-4">
-                <CardTitle className="font-heading line-clamp-2 text-base leading-snug">
+                <CardTitle className="line-clamp-2 text-base leading-snug">
                   {v.title}
                 </CardTitle>
                 <CardDescription className="text-xs">YouTube</CardDescription>

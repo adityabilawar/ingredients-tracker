@@ -39,7 +39,6 @@ export function DashboardOverview({
       hint: "Items on hand",
       icon: Salad,
       href: "/ingredients",
-      accent: "from-emerald-600/15 to-herb/10",
     },
     {
       label: "Supplements",
@@ -47,7 +46,6 @@ export function DashboardOverview({
       hint: "Logged items",
       icon: Pill,
       href: "/supplements",
-      accent: "from-violet-600/10 to-herb/10",
     },
     {
       label: "Recipes",
@@ -55,7 +53,6 @@ export function DashboardOverview({
       hint: "Saved",
       icon: ChefHat,
       href: "/recipes",
-      accent: "from-terracotta/15 to-amber-500/10",
     },
     {
       label: "Meal plan",
@@ -63,14 +60,13 @@ export function DashboardOverview({
       hint: "Slots this week",
       icon: UtensilsCrossed,
       href: "/meal-plan",
-      accent: "from-sky-600/10 to-herb/10",
     },
   ] as const;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 md:gap-14">
       <header className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
           Home
         </h1>
       </header>
@@ -81,29 +77,23 @@ export function DashboardOverview({
             <Link href={s.href} className="group block h-full min-h-[44px]">
               <Card
                 className={cn(
-                  "h-full border-border/80 bg-card/90 py-0 shadow-sm ring-1 ring-black/[0.03] transition-all duration-300",
-                  "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md dark:ring-white/[0.05]",
+                  "h-full border-border py-0 transition-all duration-200",
+                  "hover:-translate-y-0.5 hover:shadow-md",
                 )}
               >
-                <CardContent className="relative overflow-hidden p-5">
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute -right-6 -top-6 size-28 rounded-full bg-gradient-to-br opacity-90 blur-2xl transition-opacity group-hover:opacity-100",
-                      s.accent,
-                    )}
-                  />
-                  <div className="relative flex items-start justify-between gap-3">
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
                         {s.label}
                       </p>
-                      <p className="font-heading mt-1 text-3xl font-semibold tabular-nums tracking-tight">
+                      <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">
                         {s.value}
                       </p>
                       <p className="text-muted-foreground mt-1 text-xs">{s.hint}</p>
                     </div>
-                    <div className="bg-herb-muted text-herb flex size-11 shrink-0 items-center justify-center rounded-xl border border-primary/10 shadow-inner">
-                      <s.icon className="size-5" />
+                    <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                      <s.icon className="size-[18px]" />
                     </div>
                   </div>
                 </CardContent>
@@ -117,12 +107,12 @@ export function DashboardOverview({
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-4 px-0.5">
             <div>
-              <h2 className="font-heading text-lg font-semibold tracking-tight">
+              <h2 className="text-lg font-semibold tracking-tight">
                 Quick actions
               </h2>
             </div>
           </div>
-          <Card className="border-border/80 bg-card/95 py-6 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
+          <Card className="border-border py-6">
             <CardContent className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link href="/ingredients" className={cn(buttonVariants({ size: "lg" }))}>
                 Add ingredient
@@ -151,14 +141,14 @@ export function DashboardOverview({
 
         <section className="space-y-4">
           <div className="px-0.5">
-            <h2 className="font-heading text-lg font-semibold tracking-tight">
+            <h2 className="text-lg font-semibold tracking-tight">
               Meal plan
             </h2>
             <p className="text-muted-foreground text-sm">
               This week at a glance (Mon–Sun)
             </p>
           </div>
-          <Card className="border-border/80 bg-card/95 py-6 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
+          <Card className="border-border py-6">
             <CardContent className="space-y-3">
               {upcoming.length === 0 ? (
                 <p className="text-muted-foreground text-sm leading-relaxed">
@@ -176,9 +166,9 @@ export function DashboardOverview({
                       initial={{ opacity: 0, x: -6 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05, duration: 0.35, ease }}
-                      className="flex items-center gap-3 rounded-xl border border-transparent px-1 py-2 transition-colors hover:border-border hover:bg-muted/40"
+                      className="flex items-center gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-accent"
                     >
-                      <div className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-lg border border-border/60">
+                      <div className="bg-muted relative size-12 shrink-0 overflow-hidden rounded-lg">
                         {m.thumb ? (
                           <Image
                             src={m.thumb}

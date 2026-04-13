@@ -125,7 +125,7 @@ export function IngredientsClient() {
               <Plus className="size-4" />
               Add ingredient
             </Button>
-            <DialogContent className="border-border/80 sm:max-w-md">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>New ingredient</DialogTitle>
               </DialogHeader>
@@ -162,12 +162,12 @@ export function IngredientsClient() {
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="border-terracotta/20 from-herb-muted/40 flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed bg-gradient-to-b to-transparent px-6 py-16 text-center">
-          <div className="bg-background/80 text-terracotta flex size-14 items-center justify-center rounded-2xl border shadow-sm">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border px-6 py-16 text-center">
+          <div className="bg-muted text-muted-foreground flex size-14 items-center justify-center rounded-xl">
             <Package className="size-7" />
           </div>
           <div className="max-w-sm space-y-2">
-            <p className="font-heading text-lg font-semibold">No ingredients yet</p>
+            <p className="text-lg font-semibold">No ingredients yet</p>
             <p className="text-muted-foreground text-sm leading-relaxed">
               Add what you have so pantry-based recipes can match your kitchen.
             </p>
@@ -186,8 +186,8 @@ export function IngredientsClient() {
                 <LiftHover>
                   <Card
                     className={cn(
-                      "group/card overflow-hidden rounded-2xl border py-0 shadow-sm ring-1 ring-black/[0.03] transition-shadow duration-300 hover:shadow-lg dark:ring-white/[0.05]",
-                      needsVisual && "border-l-4 border-l-terracotta",
+                      "group/card overflow-hidden rounded-xl border border-border py-0 transition-shadow duration-200 hover:shadow-md",
+                      needsVisual && "border-l-4 border-l-muted-foreground",
                     )}
                   >
                     <div className="bg-muted relative aspect-[4/3] w-full overflow-hidden">
@@ -204,7 +204,7 @@ export function IngredientsClient() {
                           }
                         />
                       ) : (
-                        <div className="from-muted flex h-full flex-col items-center justify-center gap-2 bg-gradient-to-br to-terracotta-muted/40 p-6 text-center">
+                        <div className="bg-muted flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
                           <Package className="text-muted-foreground size-8 opacity-40" />
                           <span className="text-muted-foreground text-xs font-medium">
                             No photo yet
@@ -213,7 +213,7 @@ export function IngredientsClient() {
                       )}
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent opacity-90" />
                       <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-2 p-4">
-                        <h2 className="font-heading line-clamp-2 text-lg font-semibold leading-tight text-white drop-shadow-md">
+                        <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-white drop-shadow-md">
                           {ing.name}
                         </h2>
                       </div>
@@ -222,13 +222,13 @@ export function IngredientsClient() {
                           ×1 stocked
                         </span>
                         {needsVisual ? (
-                          <span className="rounded-full border border-terracotta/40 bg-terracotta/90 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                          <span className="rounded-full border border-white/25 bg-black/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-md">
                             Add photo
                           </span>
                         ) : null}
                       </div>
                     </div>
-                    <CardFooter className="border-t border-border/60 bg-muted/30 p-4">
+                    <CardFooter className="border-t border-border p-4">
                       <Button
                         variant="destructive"
                         size="sm"
