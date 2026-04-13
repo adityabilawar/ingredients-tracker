@@ -42,9 +42,18 @@ export async function findByIngredients(
   url.searchParams.set("apiKey", key);
 
   const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-  if (!res.ok) return [];
+  console.log(
+    `[spoonacular] findByIngredients status=${res.status} ingredients=${ingredients.length}`,
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[spoonacular] findByIngredients error body:`, body);
+    return [];
+  }
   const data = (await res.json()) as SpoonacularBrief[];
-  return Array.isArray(data) ? data : [];
+  const list = Array.isArray(data) ? data : [];
+  console.log(`[spoonacular] findByIngredients returned ${list.length} recipes`);
+  return list;
 }
 
 export async function searchRecipes(
@@ -61,7 +70,14 @@ export async function searchRecipes(
   url.searchParams.set("apiKey", key);
 
   const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-  if (!res.ok) return [];
+  console.log(
+    `[spoonacular] searchRecipes status=${res.status} query="${query.trim()}"`,
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[spoonacular] searchRecipes error body:`, body);
+    return [];
+  }
   const data = (await res.json()) as {
     results?: {
       id: number;
@@ -73,7 +89,9 @@ export async function searchRecipes(
       };
     }[];
   };
-  return (data.results ?? []).map((r) => {
+  const results = data.results ?? [];
+  console.log(`[spoonacular] searchRecipes returned ${results.length} recipes`);
+  return results.map((r) => {
     const cal = (r.nutrition?.nutrients ?? []).find(
       (n) => n.name?.toLowerCase() === "calories",
     )?.amount;
@@ -101,7 +119,14 @@ export async function getRecipeInformation(
   url.searchParams.set("apiKey", key);
 
   const res = await fetch(url.toString(), { next: { revalidate: 0 } });
-  if (!res.ok) throw new Error("Failed to load recipe from Spoonacular");
+  console.log(
+    `[spoonacular] getRecipeInformation status=${res.status} id=${spoonacularId}`,
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[spoonacular] getRecipeInformation error body:`, body);
+    throw new Error("Failed to load recipe from Spoonacular");
+  }
 
   const data = (await res.json()) as {
     title?: string;

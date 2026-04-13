@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookmarkPlus,
@@ -36,6 +37,63 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiftHover, Stagger, FadeItem } from "@/components/motion-primitives";
+
+function RecipeImageLoader({
+  title,
+  className,
+  sizes,
+}: {
+  title: string;
+  className?: string;
+  sizes?: string;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`/api/recipes/generate-image?title=${encodeURIComponent(title)}`)
+      .then((r) => r.json())
+      .then((data: { imageUrl?: string }) => {
+        if (!cancelled && data.imageUrl) setSrc(data.imageUrl);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [title]);
+
+  if (loading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="text-muted-foreground size-8 animate-spin opacity-50" />
+      </div>
+    );
+  }
+
+  if (!src) {
+    return (
+      <div className="from-herb-muted/50 flex h-full items-center justify-center bg-gradient-to-br to-terracotta-muted/30">
+        <ChefHat className="text-muted-foreground size-12 opacity-35" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={title}
+      fill
+      className={className ?? "object-cover"}
+      sizes={sizes ?? "(max-width:1024px) 50vw, 33vw"}
+      unoptimized={src.includes("placehold.co")}
+    />
+  );
+}
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -88,6 +146,28 @@ type SuggestResponse =
     }
   | { provider: "none"; recipes: unknown[]; message?: string };
 
+type PantryOnlyResponse =
+  | {
+      provider: "spoonacular";
+      recipes: {
+        spoonacularId: number;
+        title: string;
+        image: string | null;
+        usedIngredientCount: number;
+        missedIngredientCount: number;
+      }[];
+    }
+  | {
+      provider: "openai";
+      recipes: {
+        aiId: string;
+        title: string;
+        image: null;
+        ingredients: string[];
+      }[];
+    }
+  | { provider: "none"; recipes: unknown[]; message?: string };
+
 export function RecipesClient() {
   const [suggest, setSuggest] = useState<SuggestResponse | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(true);
@@ -104,6 +184,9 @@ export function RecipesClient() {
   const [searching, setSearching] = useState(false);
   const [saved, setSaved] = useState<RecipeWithLines[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
+
+  const [pantryOnly, setPantryOnly] = useState<PantryOnlyResponse | null>(null);
+  const [pantryLoading, setPantryLoading] = useState(true);
 
   const [detail, setDetail] = useState<RecipeWithLines | null>(null);
   const [editLines, setEditLines] = useState("");
@@ -124,6 +207,22 @@ export function RecipesClient() {
       toast.error(e instanceof Error ? e.message : "Failed to load suggestions");
     } finally {
       setSuggestLoading(false);
+    }
+  }, []);
+
+  const loadPantryOnly = useCallback(async () => {
+    setPantryLoading(true);
+    try {
+      const data = await jsonFetch<PantryOnlyResponse>(
+        "/api/recipes/pantry-only",
+      );
+      setPantryOnly(data);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to load pantry-only recipes",
+      );
+    } finally {
+      setPantryLoading(false);
     }
   }, []);
 
@@ -149,8 +248,9 @@ export function RecipesClient() {
 
   useEffect(() => {
     void loadSuggest();
+    void loadPantryOnly();
     void loadSaved();
-  }, [loadSuggest, loadSaved]);
+  }, [loadSuggest, loadPantryOnly, loadSaved]);
 
   async function runSearch() {
     const q = searchQ.trim();
@@ -320,12 +420,18 @@ export function RecipesClient() {
   return (
     <div className="space-y-8 md:space-y-10">
       <Tabs defaultValue="suggested" className="w-full">
-        <TabsList className="bg-muted/60 grid h-12 w-full max-w-xl grid-cols-3 gap-1 rounded-2xl p-1 ring-1 ring-border/60">
+        <TabsList className="bg-muted/60 grid h-12 w-full max-w-2xl grid-cols-4 gap-1 rounded-2xl p-1 ring-1 ring-border/60">
           <TabsTrigger
             value="suggested"
             className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
           >
             For you
+          </TabsTrigger>
+          <TabsTrigger
+            value="pantry-only"
+            className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm rounded-xl font-medium"
+          >
+            Pantry only
           </TabsTrigger>
           <TabsTrigger
             value="search"
@@ -374,9 +480,10 @@ export function RecipesClient() {
                               sizes="(max-width:1024px) 50vw, 33vw"
                             />
                           ) : (
-                            <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                              No image
-                            </div>
+                            <RecipeImageLoader
+                              title={r.title}
+                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                            />
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
                           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
@@ -422,22 +529,31 @@ export function RecipesClient() {
                 suggest.recipes.map((r) => (
                   <FadeItem key={r.aiId}>
                     <LiftHover>
-                      <Card className="rounded-2xl border py-6 shadow-sm ring-1 ring-black/[0.03] transition-shadow hover:shadow-md dark:ring-white/[0.05]">
-                        <CardHeader>
-                          <CardTitle className="font-heading text-lg leading-snug">
-                            {r.title}
-                          </CardTitle>
-                          <CardDescription>OpenAI suggestion</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-muted-foreground line-clamp-4 text-xs leading-relaxed">
-                            {(r.ingredients ?? []).join(", ")}
-                          </p>
-                        </CardContent>
-                        <CardFooter>
+                      <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                        <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                          <RecipeImageLoader
+                            title={r.title}
+                            className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                            <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
+                              AI generated
+                            </span>
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 p-4">
+                            <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                              {r.title}
+                            </CardTitle>
+                            <CardDescription className="mt-1 line-clamp-2 text-xs text-white/80">
+                              {(r.ingredients ?? []).join(", ")}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
                           <Button
                             size="lg"
-                            className="min-h-11 w-full"
+                            className="min-h-11 w-full touch-manipulation"
                             onClick={() =>
                               void saveFromOpenAI(r.title, r.ingredients ?? [])
                             }
@@ -452,6 +568,136 @@ export function RecipesClient() {
                 ))}
             </Stagger>
           )}
+        </TabsContent>
+
+        <TabsContent value="pantry-only" className="space-y-6 pt-6">
+          {pantryLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-[22rem] rounded-2xl" />
+              ))}
+            </div>
+          ) : pantryOnly?.provider === "none" ? (
+            <div className="border-terracotta/25 from-herb-muted/30 rounded-2xl border border-dashed bg-gradient-to-br to-transparent px-6 py-12 text-center">
+              <ChefHat className="text-muted-foreground mx-auto mb-3 size-10 opacity-50" />
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {pantryOnly.message ??
+                  "Add ingredients or configure recipe APIs to see pantry-only ideas."}
+              </p>
+            </div>
+          ) : pantryOnly?.provider === "spoonacular" ? (
+            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {pantryOnly.recipes.map((r) => {
+                const missed = r.missedIngredientCount ?? 0;
+                return (
+                  <FadeItem key={r.spoonacularId}>
+                    <LiftHover>
+                      <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                        <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                          {r.image ? (
+                            <Image
+                              src={r.image}
+                              alt=""
+                              fill
+                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                              sizes="(max-width:1024px) 50vw, 33vw"
+                            />
+                          ) : (
+                            <RecipeImageLoader
+                              title={r.title}
+                              className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                            <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                              {r.usedIngredientCount} of your ingredients
+                            </span>
+                            {missed > 0 ? (
+                              <span className="rounded-full border border-amber-400/50 bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-50 backdrop-blur-md">
+                                +{missed} extra{missed === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="absolute inset-x-0 bottom-0 p-4">
+                            <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                              {r.title}
+                            </CardTitle>
+                            <CardDescription className="mt-1 text-xs text-white/80">
+                              {missed === 0
+                                ? "No shopping needed"
+                                : "Mostly from your pantry"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                          <Button
+                            size="lg"
+                            className="min-h-11 w-full touch-manipulation"
+                            onClick={() =>
+                              void saveFromSpoonacular(
+                                r.spoonacularId,
+                                "suggested",
+                              )
+                            }
+                          >
+                            <BookmarkPlus className="size-4" />
+                            Save to library
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </LiftHover>
+                  </FadeItem>
+                );
+              })}
+            </Stagger>
+          ) : pantryOnly?.provider === "openai" ? (
+            <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {pantryOnly.recipes.map((r) => (
+                <FadeItem key={r.aiId}>
+                  <LiftHover>
+                    <Card className="group/rec overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-xl dark:ring-white/[0.06]">
+                      <div className="bg-muted relative aspect-[5/4] w-full overflow-hidden sm:aspect-[4/3]">
+                        <RecipeImageLoader
+                          title={r.title}
+                          className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-emerald-400/40 bg-emerald-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-50 backdrop-blur-md">
+                            Pantry only
+                          </span>
+                          <span className="rounded-full border border-violet-400/40 bg-violet-950/50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-50 backdrop-blur-md">
+                            AI generated
+                          </span>
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 p-4">
+                          <CardTitle className="font-heading line-clamp-2 text-lg font-semibold leading-snug text-white drop-shadow">
+                            {r.title}
+                          </CardTitle>
+                          <CardDescription className="mt-1 line-clamp-2 text-xs text-white/80">
+                            {(r.ingredients ?? []).join(", ")}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <CardFooter className="border-t border-border/60 bg-muted/25 p-4">
+                        <Button
+                          size="lg"
+                          className="min-h-11 w-full touch-manipulation"
+                          onClick={() =>
+                            void saveFromOpenAI(r.title, r.ingredients ?? [])
+                          }
+                        >
+                          <BookmarkPlus className="size-4" />
+                          Save to library
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </LiftHover>
+                </FadeItem>
+              ))}
+            </Stagger>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="search" className="space-y-6 pt-6">
@@ -574,6 +820,11 @@ export function RecipesClient() {
                     <LiftHover>
                       <Card className="group/saved overflow-hidden rounded-2xl border py-0 shadow-md ring-1 ring-black/[0.04] transition-shadow hover:shadow-lg dark:ring-white/[0.06]">
                         <div className="bg-muted relative aspect-[16/10] w-full overflow-hidden">
+                          <Link
+                            href={`/recipes/${r.id}`}
+                            className="absolute inset-0 z-[1]"
+                            aria-label={`View recipe: ${r.name}`}
+                          />
                           {r.thumbnail_url ? (
                             <Image
                               src={r.thumbnail_url}
@@ -592,12 +843,16 @@ export function RecipesClient() {
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/20" />
-                          <div className="absolute right-2 top-2 flex gap-1">
+                          <div className="absolute right-2 top-2 z-20 flex gap-1">
                             <Button
                               size="icon"
                               variant="secondary"
                               className="size-10 min-h-10 min-w-10 rounded-full border border-white/30 bg-white/90 text-foreground shadow-md backdrop-blur hover:bg-white dark:bg-black/60 dark:text-white"
-                              onClick={() => openDetail(r)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openDetail(r);
+                              }}
                             >
                               <Pencil className="size-4" />
                             </Button>
@@ -605,12 +860,16 @@ export function RecipesClient() {
                               size="icon"
                               variant="secondary"
                               className="size-10 min-h-10 min-w-10 rounded-full border border-white/30 bg-white/90 text-destructive shadow-md backdrop-blur hover:bg-white dark:bg-black/60"
-                              onClick={() => void deleteRecipe(r.id)}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void deleteRecipe(r.id);
+                              }}
                             >
                               <Trash2 className="size-4" />
                             </Button>
                           </div>
-                          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
                             <span className="rounded-full border border-white/25 bg-black/35 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-md">
                               {n} ingredients
                             </span>
@@ -618,16 +877,27 @@ export function RecipesClient() {
                               {r.source}
                             </span>
                           </div>
-                          <div className="absolute inset-x-0 bottom-0 p-4 pt-12">
-                            <CardTitle className="font-heading line-clamp-2 text-xl font-semibold text-white drop-shadow-md">
+                          <div className="absolute inset-x-0 bottom-0 z-10 p-4 pt-12">
+                            <CardTitle className="font-heading pointer-events-none line-clamp-2 text-xl font-semibold text-white drop-shadow-md">
                               {r.name}
                             </CardTitle>
+                            <Link
+                              href={`/recipes/${r.id}`}
+                              className="relative z-20 mt-2 inline-block text-xs font-medium text-white/90 underline-offset-4 hover:underline"
+                            >
+                              View recipe
+                            </Link>
+                            <span className="text-white/50 mx-1.5 text-xs">·</span>
                             <button
                               type="button"
-                              className="mt-2 text-left text-xs font-medium text-white/90 underline-offset-4 hover:underline"
-                              onClick={() => openDetail(r)}
+                              className="relative z-20 text-left text-xs font-medium text-white/90 underline-offset-4 hover:underline"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openDetail(r);
+                              }}
                             >
-                              View & edit
+                              Edit
                             </button>
                           </div>
                         </div>
@@ -679,21 +949,25 @@ export function RecipesClient() {
                       />
                     </div>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    No YouTube match yet. Try refreshing after renaming the dish.
-                  </p>
-                )}
+                ) : null}
               </div>
-              <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void refreshYoutube()}
-                  disabled={savingDetail}
-                >
-                  Refresh YouTube match
-                </Button>
+              <DialogFooter
+                className={
+                  embedUrl
+                    ? "flex flex-wrap gap-2 sm:justify-between"
+                    : "flex flex-wrap justify-end gap-2"
+                }
+              >
+                {embedUrl ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void refreshYoutube()}
+                    disabled={savingDetail}
+                  >
+                    Refresh YouTube match
+                  </Button>
+                ) : null}
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setDetail(null)}>
                     Close

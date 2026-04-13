@@ -14,8 +14,8 @@ export default function RecipesPage() {
           </h1>
           <p className="text-muted-foreground text-sm leading-relaxed md:text-base">
             Suggestions from Spoonacular (with an OpenAI fallback), search across
-            the web catalog, and your saved library with YouTube embeds when you
-            edit.
+            the web catalog, and your saved library — open a recipe to see YouTube
+            cooking videos and edit details anytime.
           </p>
         </div>
       </header>

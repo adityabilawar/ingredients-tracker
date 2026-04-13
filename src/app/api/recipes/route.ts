@@ -4,6 +4,7 @@ import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRecipeInformation } from "@/lib/spoonacular";
 import { searchRecipeVideo } from "@/lib/youtube";
+import { resolveRecipeImage } from "@/lib/images";
 
 const postSchema = z.object({
   kind: z.enum(["spoonacular", "openai", "custom"]),
@@ -124,6 +125,15 @@ export async function POST(req: Request) {
       { error: err instanceof Error ? err.message : "Upstream error" },
       { status: 502 },
     );
+  }
+
+  if (!thumb) {
+    try {
+      const resolved = await resolveRecipeImage(name, user.id);
+      thumb = resolved.imageUrl;
+    } catch {
+      // non-critical — proceed without thumbnail
+    }
   }
 
   const yt = await searchRecipeVideo(name);

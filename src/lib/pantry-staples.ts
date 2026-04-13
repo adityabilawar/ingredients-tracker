@@ -10,15 +10,32 @@ export const PANTRY_STAPLES = [
   "garlic powder",
   "onion powder",
   "paprika",
+  "smoked paprika",
   "cumin",
   "chili powder",
   "oregano",
+  "Italian seasoning",
+  "thyme",
+  "rosemary",
+  "basil",
+  "bay leaves",
+  "turmeric",
+  "nutmeg",
   "cinnamon",
+  "cayenne pepper",
+  "ground ginger",
+  "mustard powder",
+  "white pepper",
+  "curry powder",
+  "coriander",
   "red pepper flakes",
 
   // Oils & fats
   "olive oil",
   "vegetable oil",
+  "sesame oil",
+  "coconut oil",
+  "cooking spray",
   "butter",
 
   // Baking & pantry basics
@@ -32,6 +49,15 @@ export const PANTRY_STAPLES = [
   // Acids & condiments
   "white vinegar",
   "soy sauce",
+  "ketchup",
+  "mustard",
+  "hot sauce",
+  "Worcestershire sauce",
+  "honey",
+  "maple syrup",
+  "lemon juice",
+  "lime juice",
+  "tomato paste",
 
   // Alliums
   "garlic",
