@@ -294,6 +294,11 @@ export function PantryShortsSection() {
                     .replace(/^@+/, "")
                     .slice(0, 48)}
                 </p>
+                {v.searchLabel ? (
+                  <p className="text-zinc-500 mb-1 line-clamp-2 text-[11px] leading-snug">
+                    From pantry: {decodeHTMLEntities(v.searchLabel)}
+                  </p>
+                ) : null}
                 <p className="line-clamp-2 text-sm leading-snug font-medium text-white drop-shadow">
                   {decodeHTMLEntities(v.title)}
                 </p>

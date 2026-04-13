@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { searchPantryShortsVideos } from "@/lib/youtube";
+import { searchPantryShortsVideosDiverse } from "@/lib/youtube";
 
-export async function GET() {
+function clampInt(
+  raw: string | null,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  if (raw == null || raw === "") return fallback;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+export async function GET(request: Request) {
   let env: ReturnType<typeof getServerEnv>;
   try {
     env = getServerEnv();
@@ -43,7 +55,15 @@ export async function GET() {
     });
   }
 
-  const videos = await searchPantryShortsVideos(names, 15);
+  const url = new URL(request.url);
+  const maxVideos = clampInt(url.searchParams.get("maxVideos"), 45, 10, 50);
+  const maxSearches = clampInt(url.searchParams.get("maxSearches"), 12, 4, 14);
+
+  const videos = await searchPantryShortsVideosDiverse(names, {
+    seedSalt: user.id,
+    maxVideos,
+    maxSearches,
+  });
   return NextResponse.json({
     youtubeConfigured: true as const,
     videos,
