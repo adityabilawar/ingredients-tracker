@@ -1,4 +1,4 @@
-# Pantry — Ingredients tracker
+# PantryOS
 
 Production-oriented Next.js app for tracking **ingredients** and **supplements** (with images via Pexels → DALL-E fallback), **recipes** (Spoonacular with OpenAI fallback + embedded YouTube), and a **weekly meal plan**. Auth via **Supabase OAuth** (Google, GitHub, Apple).
 

@@ -91,8 +91,8 @@ type PantryOnlyResponse =
     }
   | { provider: "none"; recipes: unknown[]; message?: string };
 
-const SS_PANTRY_EMPTY = "ingredients-tracker:recipes-pantry-empty-v1";
-const SS_SAVED_LIST = "ingredients-tracker:recipes-saved-list-v1";
+const SS_PANTRY_EMPTY = "pantry-os:recipes-pantry-empty-v1";
+const SS_SAVED_LIST = "pantry-os:recipes-saved-list-v1";
 
 function readPantryEmptyFromSession(): PantryOnlyResponse | null {
   if (typeof window === "undefined") return null;

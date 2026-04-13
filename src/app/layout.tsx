@@ -7,13 +7,13 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   ),
   title: {
-    default: "Pantry — Ingredients & meal planner",
-    template: "%s · Pantry",
+    default: "PantryOS — Ingredients & meal planner",
+    template: "%s · PantryOS",
   },
   description:
     "Track ingredients and supplements, discover recipes, and plan your week with embedded cooking videos.",
   openGraph: {
-    title: "Pantry — Ingredients & meal planner",
+    title: "PantryOS — Ingredients & meal planner",
     description:
       "Track ingredients and supplements, discover recipes, and plan your week.",
     type: "website",

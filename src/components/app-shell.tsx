@@ -93,7 +93,7 @@ export function AppShell({
       <aside className="bg-sidebar text-sidebar-foreground hidden w-60 shrink-0 flex-col border-r border-sidebar-border md:flex">
         <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-5">
           <span className="text-[15px] font-semibold tracking-tight">
-            Pantry
+            PantryOS
           </span>
         </div>
         <NavLinks />
@@ -113,7 +113,7 @@ export function AppShell({
             </SheetTrigger>
             <SheetContent side="left" className="w-60 border-sidebar-border bg-sidebar p-0">
               <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-4">
-                <span className="text-[15px] font-semibold">Pantry</span>
+                <span className="text-[15px] font-semibold">PantryOS</span>
               </div>
               <NavLinks onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
