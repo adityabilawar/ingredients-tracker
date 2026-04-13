@@ -39,6 +39,7 @@ export type Database = {
           user_id: string;
           name: string;
           image_url: string | null;
+          daily_target: number;
           created_at: string;
         };
         Insert: {
@@ -46,6 +47,7 @@ export type Database = {
           user_id: string;
           name: string;
           image_url?: string | null;
+          daily_target?: number;
           created_at?: string;
         };
         Update: {
@@ -53,6 +55,31 @@ export type Database = {
           user_id?: string;
           name?: string;
           image_url?: string | null;
+          daily_target?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      supplement_logs: {
+        Row: {
+          id: string;
+          supplement_id: string;
+          user_id: string;
+          taken_date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          supplement_id: string;
+          user_id: string;
+          taken_date?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          supplement_id?: string;
+          user_id?: string;
+          taken_date?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -156,3 +183,5 @@ export type RecipeIngredient =
   Database["public"]["Tables"]["recipe_ingredients"]["Row"];
 export type MealPlanEntry =
   Database["public"]["Tables"]["meal_plan_entries"]["Row"];
+export type SupplementLog =
+  Database["public"]["Tables"]["supplement_logs"]["Row"];

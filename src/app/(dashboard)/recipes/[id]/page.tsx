@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ChefHat } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Recipe, RecipeIngredient } from "@/types/database";
 import { RecipeVideos } from "./recipe-videos";
+import { RecipeImageLoader } from "@/components/recipe-image-loader";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -69,9 +70,12 @@ export default async function RecipeDetailPage({ params }: PageProps) {
                 }
               />
             ) : (
-              <div className="from-herb-muted/50 flex h-full items-center justify-center bg-gradient-to-br to-terracotta-muted/30">
-                <ChefHat className="text-muted-foreground size-16 opacity-35" />
-              </div>
+              <RecipeImageLoader
+                title={recipe.name}
+                className="object-cover"
+                sizes="(max-width:768px) 100vw, 50vw"
+                priority
+              />
             )}
           </div>
           <div className="flex flex-col justify-center space-y-4">

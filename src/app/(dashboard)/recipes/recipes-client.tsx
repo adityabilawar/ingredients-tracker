@@ -18,10 +18,8 @@ import type { Recipe, RecipeIngredient } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
@@ -37,63 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiftHover, Stagger, FadeItem } from "@/components/motion-primitives";
-
-function RecipeImageLoader({
-  title,
-  className,
-  sizes,
-}: {
-  title: string;
-  className?: string;
-  sizes?: string;
-}) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/recipes/generate-image?title=${encodeURIComponent(title)}`)
-      .then((r) => r.json())
-      .then((data: { imageUrl?: string }) => {
-        if (!cancelled && data.imageUrl) setSrc(data.imageUrl);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [title]);
-
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="text-muted-foreground size-8 animate-spin opacity-50" />
-      </div>
-    );
-  }
-
-  if (!src) {
-    return (
-      <div className="from-herb-muted/50 flex h-full items-center justify-center bg-gradient-to-br to-terracotta-muted/30">
-        <ChefHat className="text-muted-foreground size-12 opacity-35" />
-      </div>
-    );
-  }
-
-  return (
-    <Image
-      src={src}
-      alt={title}
-      fill
-      className={className ?? "object-cover"}
-      sizes={sizes ?? "(max-width:1024px) 50vw, 33vw"}
-      unoptimized={src.includes("placehold.co")}
-    />
-  );
-}
+import { RecipeImageLoader } from "@/components/recipe-image-loader";
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -743,9 +685,10 @@ export function RecipesClient() {
                             sizes="(max-width:1024px) 50vw, 33vw"
                           />
                         ) : (
-                          <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                            No image
-                          </div>
+                          <RecipeImageLoader
+                            title={r.title}
+                            className="object-cover transition duration-500 group-hover/rec:scale-[1.05]"
+                          />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
                         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
@@ -838,9 +781,11 @@ export function RecipesClient() {
                               }
                             />
                           ) : (
-                            <div className="from-herb-muted/50 flex h-full items-center justify-center bg-gradient-to-br to-terracotta-muted/30">
-                              <ChefHat className="text-muted-foreground size-12 opacity-35" />
-                            </div>
+                            <RecipeImageLoader
+                              title={r.name}
+                              className="object-cover transition duration-500 group-hover/saved:scale-[1.04]"
+                              sizes="(max-width:768px) 100vw, 50vw"
+                            />
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/20" />
                           <div className="absolute right-2 top-2 z-20 flex gap-1">

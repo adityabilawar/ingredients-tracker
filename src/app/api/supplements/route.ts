@@ -33,7 +33,15 @@ export async function GET() {
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ supplements: data ?? [] });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: logs } = await supabase
+    .from("supplement_logs")
+    .select("id, supplement_id")
+    .eq("user_id", user.id)
+    .eq("taken_date", today);
+
+  return NextResponse.json({ supplements: data ?? [], logs: logs ?? [] });
 }
 
 export async function POST(req: Request) {
