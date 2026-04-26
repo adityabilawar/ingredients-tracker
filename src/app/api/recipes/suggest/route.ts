@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { findByIngredients } from "@/lib/spoonacular";
-import { suggestRecipesWithOpenAI } from "@/lib/openai-recipes";
 
 export async function GET() {
   try {
@@ -30,36 +29,30 @@ export async function GET() {
   if (names.length === 0) {
     return NextResponse.json({
       provider: "none" as const,
-      recipes: [] as unknown[],
+      recipes: [],
       message: "Add ingredients to get suggestions.",
     });
   }
 
   const spoon = await findByIngredients(names);
-  if (spoon.length > 0) {
+  if (spoon.length === 0) {
     return NextResponse.json({
-      provider: "spoonacular" as const,
-      recipes: spoon.map((r) => ({
-        spoonacularId: r.id,
-        title: r.title,
-        image: r.image,
-        usedIngredientCount: r.usedIngredientCount,
-        missedIngredientCount: r.missedIngredientCount,
-      })),
+      provider: "none" as const,
+      recipes: [],
+      message: "No matches yet. Try adding more ingredients.",
     });
   }
 
-  const ai = await suggestRecipesWithOpenAI(names);
   return NextResponse.json({
-    provider: "openai" as const,
-    recipes: ai.map((r) => ({
-      aiId: r.id,
+    provider: "spoonacular" as const,
+    recipes: spoon.map((r) => ({
+      spoonacularId: r.id,
       title: r.title,
       image: r.image,
-      ingredients: r.ingredients,
-      cuisine: r.cuisine,
-      meal_type: r.meal_type,
-      description: r.description,
+      usedIngredientCount: r.usedIngredientCount,
+      missedIngredientCount: r.missedIngredientCount,
+      missedIngredients: r.missedIngredients ?? [],
+      usedIngredients: r.usedIngredients ?? [],
     })),
   });
 }

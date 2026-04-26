@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { searchRecipeVideo } from "@/lib/youtube";
+import { backfillRecipeFromSpoonacular } from "@/lib/recipe-backfill";
 import type { Database } from "@/types/database";
 
 type RecipeUpdate = Database["public"]["Tables"]["recipes"]["Update"];
@@ -33,14 +34,30 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { data: existing, error } = await supabase
     .from("recipes")
-    .select("*, recipe_ingredients(*)")
+    .select(
+      "id, name, spoonacular_id, thumbnail_url, instructions",
+    )
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
-  if (error || !data)
+  if (error || !existing)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await backfillRecipeFromSpoonacular(existing, supabase);
+
+  const { data, error: selectErr } = await supabase
+    .from("recipes")
+    .select(
+      "*, recipe_ingredients(*), recipe_missing_ingredients(*)",
+    )
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (selectErr || !data)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ recipe: data });
 }
@@ -139,7 +156,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   const { data: full } = await supabase
     .from("recipes")
-    .select("*, recipe_ingredients(*)")
+    .select("*, recipe_ingredients(*), recipe_missing_ingredients(*)")
     .eq("id", id)
     .single();
 

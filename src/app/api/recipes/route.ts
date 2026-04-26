@@ -7,12 +7,14 @@ import { searchRecipeVideo } from "@/lib/youtube";
 import { resolveRecipeImage } from "@/lib/images";
 
 const postSchema = z.object({
-  kind: z.enum(["spoonacular", "openai", "custom"]),
+  kind: z.enum(["spoonacular", "custom"]),
   source: z.enum(["suggested", "searched", "custom"]).default("custom"),
   spoonacularId: z.number().optional(),
-  /** For openai / custom */
+  /** For custom recipes only */
   name: z.string().optional(),
   ingredients: z.array(z.string()).optional().default([]),
+  /** Strings the cook is missing from their pantry (only meaningful for spoonacular kind) */
+  missingIngredients: z.array(z.string()).optional().default([]),
   thumbnailUrl: z.string().nullable().optional(),
 });
 
@@ -35,7 +37,9 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("recipes")
-    .select("*, recipe_ingredients(*)")
+    .select(
+      "*, recipe_ingredients(*), recipe_missing_ingredients(*)",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -79,9 +83,14 @@ export async function POST(req: Request) {
   const body = parsed.data;
   let name = body.name?.trim() ?? "";
   let ingredients = body.ingredients ?? [];
+  let missing = body.missingIngredients ?? [];
   let thumb = body.thumbnailUrl ?? null;
   let spoonacularId: number | null = null;
   let source = body.source;
+  let instructions: { number: number; step: string }[] = [];
+  let readyInMinutes: number | null = null;
+  let servings: number | null = null;
+  let sourceUrl: string | null = null;
 
   try {
     if (body.kind === "spoonacular") {
@@ -96,18 +105,11 @@ export async function POST(req: Request) {
       name = info.title;
       ingredients = info.ingredients;
       thumb = info.image;
+      instructions = info.instructions;
+      readyInMinutes = info.readyInMinutes;
+      servings = info.servings;
+      sourceUrl = info.sourceUrl;
       source = body.source;
-    } else if (body.kind === "openai") {
-      if (!body.name?.trim()) {
-        return NextResponse.json(
-          { error: "name required for openai kind" },
-          { status: 400 },
-        );
-      }
-      name = body.name.trim();
-      ingredients = body.ingredients ?? [];
-      source = "suggested";
-      spoonacularId = null;
     } else {
       if (!body.name?.trim()) {
         return NextResponse.json(
@@ -117,6 +119,7 @@ export async function POST(req: Request) {
       }
       name = body.name.trim();
       ingredients = body.ingredients ?? [];
+      missing = [];
       source = "custom";
       spoonacularId = null;
     }
@@ -129,7 +132,7 @@ export async function POST(req: Request) {
 
   if (!thumb) {
     try {
-      const resolved = await resolveRecipeImage(name, user.id);
+      const resolved = await resolveRecipeImage(name);
       thumb = resolved.imageUrl;
     } catch {
       // non-critical — proceed without thumbnail
@@ -148,6 +151,10 @@ export async function POST(req: Request) {
       source,
       youtube_video_id: yt?.videoId ?? null,
       youtube_url: yt?.url ?? null,
+      instructions: instructions.length > 0 ? instructions : null,
+      ready_in_minutes: readyInMinutes,
+      servings,
+      source_url: sourceUrl,
     })
     .select()
     .single();
@@ -175,9 +182,23 @@ export async function POST(req: Request) {
     }
   }
 
+  if (missing.length > 0) {
+    const missRows = missing.map((n, i) => ({
+      recipe_id: recipe.id,
+      name: n,
+      sort_order: i,
+    }));
+    const { error: miErr } = await supabase
+      .from("recipe_missing_ingredients")
+      .insert(missRows);
+    if (miErr) {
+      console.error("[recipes] failed to insert missing ingredients", miErr);
+    }
+  }
+
   const { data: full } = await supabase
     .from("recipes")
-    .select("*, recipe_ingredients(*)")
+    .select("*, recipe_ingredients(*), recipe_missing_ingredients(*)")
     .eq("id", recipe.id)
     .single();
 

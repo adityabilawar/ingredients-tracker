@@ -107,55 +107,15 @@ function recipePlaceholderUrl(text: string) {
   return `https://placehold.co/600x400/fef3c7/92400e?text=${t}`;
 }
 
-async function generateRecipeDalleAndUpload(
-  recipeName: string,
-  userId: string,
-): Promise<string | null> {
-  let env: ReturnType<typeof getServerEnv>;
-  try {
-    env = getServerEnv();
-  } catch {
-    return null;
-  }
-  const openaiKey = env.OPENAI_API_KEY;
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!openaiKey || !serviceKey) return null;
-
-  const openai = new OpenAI({ apiKey: openaiKey });
-  const img = await openai.images.generate({
-    model: "dall-e-3",
-    prompt: `A beautiful overhead photograph of "${recipeName}" plated on a ceramic dish, food photography style, warm natural lighting, shallow depth of field, garnished attractively, appetizing, photorealistic, no text, no watermark, no labels.`,
-    size: "1024x1024",
-    n: 1,
-  });
-  const remoteUrl = img.data?.[0]?.url;
-  if (!remoteUrl) return null;
-
-  const imageRes = await fetch(remoteUrl);
-  if (!imageRes.ok) return null;
-  const buf = Buffer.from(await imageRes.arrayBuffer());
-  const path = `recipes/${userId}/${randomUUID()}.png`;
-  const admin = createAdminClient();
-  const { error } = await admin.storage
-    .from("ingredient-images")
-    .upload(path, buf, {
-      contentType: "image/png",
-      upsert: true,
-    });
-  if (error) return null;
-  const { data } = admin.storage.from("ingredient-images").getPublicUrl(path);
-  return data.publicUrl;
-}
-
-/** Generate an AI image for a recipe dish — DALL-E first, then Pexels, then placeholder. */
+/**
+ * Fall back to a real Pexels stock photo for a recipe dish — never DALL-E.
+ * Caller should pass the Spoonacular image first when it has one; this is
+ * only used when Spoonacular has no image (rare) or for legacy backfills.
+ */
 export async function resolveRecipeImage(
   recipeName: string,
-  userId: string,
 ): Promise<ResolvedImage> {
   const trimmed = recipeName.trim();
-
-  const uploaded = await generateRecipeDalleAndUpload(trimmed, userId);
-  if (uploaded) return { imageUrl: uploaded, source: "dalle" };
 
   let env: ReturnType<typeof getServerEnv>;
   try {

@@ -6,6 +6,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type RecipeStep = {
+  number: number;
+  step: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -94,6 +99,10 @@ export type Database = {
           youtube_url: string | null;
           thumbnail_url: string | null;
           source: "suggested" | "searched" | "custom";
+          instructions: RecipeStep[] | null;
+          ready_in_minutes: number | null;
+          servings: number | null;
+          source_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -105,6 +114,10 @@ export type Database = {
           youtube_url?: string | null;
           thumbnail_url?: string | null;
           source?: "suggested" | "searched" | "custom";
+          instructions?: RecipeStep[] | null;
+          ready_in_minutes?: number | null;
+          servings?: number | null;
+          source_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -116,7 +129,32 @@ export type Database = {
           youtube_url?: string | null;
           thumbnail_url?: string | null;
           source?: "suggested" | "searched" | "custom";
+          instructions?: RecipeStep[] | null;
+          ready_in_minutes?: number | null;
+          servings?: number | null;
+          source_url?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      recipe_missing_ingredients: {
+        Row: {
+          id: string;
+          recipe_id: string;
+          name: string;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          recipe_id: string;
+          name: string;
+          sort_order?: number;
+        };
+        Update: {
+          id?: string;
+          recipe_id?: string;
+          name?: string;
+          sort_order?: number;
         };
         Relationships: [];
       };
@@ -181,6 +219,8 @@ export type Supplement = Database["public"]["Tables"]["supplements"]["Row"];
 export type Recipe = Database["public"]["Tables"]["recipes"]["Row"];
 export type RecipeIngredient =
   Database["public"]["Tables"]["recipe_ingredients"]["Row"];
+export type RecipeMissingIngredient =
+  Database["public"]["Tables"]["recipe_missing_ingredients"]["Row"];
 export type MealPlanEntry =
   Database["public"]["Tables"]["meal_plan_entries"]["Row"];
 export type SupplementLog =

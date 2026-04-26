@@ -2,26 +2,44 @@ import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { PANTRY_STAPLES } from "@/lib/pantry-staples";
-import {
-  suggestPantryOnlyRecipesWithOpenAI,
-  suggestRecipesWithOpenAI,
-} from "@/lib/openai-recipes";
 
 type SpoonacularRow = {
   id: number;
   title: string;
   image: string | null;
-  usedIngredientCount?: number;
-  missedIngredientCount?: number;
+  usedIngredientCount: number;
+  missedIngredientCount: number;
+  missedIngredients: string[];
+  usedIngredients: string[];
 };
 
-function mapSpoonacular(rows: SpoonacularRow[]) {
+type RawSpoonacular = {
+  id: number;
+  title: string;
+  image?: string;
+  usedIngredientCount?: number;
+  missedIngredientCount?: number;
+  missedIngredients?: { original?: string; name?: string }[];
+  usedIngredients?: { original?: string; name?: string }[];
+};
+
+function ingredientLine(i: { original?: string; name?: string }) {
+  return (i.original ?? i.name ?? "").trim();
+}
+
+function mapSpoonacular(rows: RawSpoonacular[]): SpoonacularRow[] {
   return rows.map((r) => ({
-    spoonacularId: r.id,
+    id: r.id,
     title: r.title,
-    image: r.image,
+    image: r.image ?? null,
     usedIngredientCount: r.usedIngredientCount ?? 0,
     missedIngredientCount: r.missedIngredientCount ?? 0,
+    missedIngredients: (r.missedIngredients ?? [])
+      .map(ingredientLine)
+      .filter(Boolean),
+    usedIngredients: (r.usedIngredients ?? [])
+      .map(ingredientLine)
+      .filter(Boolean),
   }));
 }
 
@@ -29,10 +47,10 @@ function normalizeTitle(t: string) {
   return t.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function filterExcludedByTitle<T extends { title: string }>(
-  rows: T[],
+function filterExcludedByTitle(
+  rows: SpoonacularRow[],
   exclude: string[],
-): T[] {
+): SpoonacularRow[] {
   if (exclude.length === 0) return rows;
   const ex = new Set(exclude.map(normalizeTitle));
   return rows.filter((r) => !ex.has(normalizeTitle(r.title)));
@@ -59,7 +77,7 @@ function parseExclude(request: Request): string[] {
 async function fetchSpoonacularByIngredients(
   names: string[],
   key: string,
-): Promise<SpoonacularRow[]> {
+): Promise<RawSpoonacular[]> {
   const withStaples = [...new Set([...names, ...PANTRY_STAPLES])];
   const url = new URL(
     "https://api.spoonacular.com/recipes/findByIngredients",
@@ -67,28 +85,27 @@ async function fetchSpoonacularByIngredients(
   url.searchParams.set("ingredients", withStaples.join(","));
   url.searchParams.set("number", "50");
   url.searchParams.set("ranking", "1");
+  url.searchParams.set("ignorePantry", "true");
   url.searchParams.set("apiKey", key);
 
   const res = await fetch(url.toString(), { next: { revalidate: 0 } });
   if (!res.ok) return [];
-  const data = (await res.json()) as SpoonacularRow[];
+  const data = (await res.json()) as RawSpoonacular[];
   return Array.isArray(data) ? data : [];
 }
 
-function pickSpoonacularSubset(list: SpoonacularRow[]): SpoonacularRow[] {
-  const strict = list.filter((r) => (r.missedIngredientCount ?? 0) === 0);
-  if (strict.length > 0) return strict.slice(0, 12);
-
-  const relaxed = list
-    .filter((r) => {
-      const m = r.missedIngredientCount ?? 0;
-      return m > 0 && m <= 2;
-    })
+function pickSpoonacularSubset(list: RawSpoonacular[]): RawSpoonacular[] {
+  /** Sort by best pantry match first; allow up to 3 missing items so we
+   *  always have enough variety on the page. */
+  const eligible = list.filter(
+    (r) => (r.missedIngredientCount ?? 0) <= 3,
+  );
+  return eligible
     .sort(
       (a, b) =>
         (a.missedIngredientCount ?? 0) - (b.missedIngredientCount ?? 0),
-    );
-  return relaxed.slice(0, 12);
+    )
+    .slice(0, 24);
 }
 
 export async function GET(request: Request) {
@@ -118,158 +135,47 @@ export async function GET(request: Request) {
   if (names.length === 0) {
     return NextResponse.json({
       provider: "none" as const,
-      recipes: [] as unknown[],
+      recipes: [] as SpoonacularRow[],
       message: "Add ingredients to see pantry-only recipes.",
     });
   }
 
-  const exclude = parseExclude(request);
-  const openAiKey = env.OPENAI_API_KEY;
   const spoonKey = env.SPOONACULAR_API_KEY;
-
-  /** When OpenAI is configured, AI suggestions are primary; Spoonacular supplements. */
-  if (openAiKey) {
-    let aiList = await suggestPantryOnlyRecipesWithOpenAI(names, { exclude });
-    if (aiList.length === 0) {
-      aiList = await suggestRecipesWithOpenAI(names, { exclude });
-    }
-
-    let spoonSlice: ReturnType<typeof mapSpoonacular> = [];
-    if (spoonKey) {
-      const spoonRows = await fetchSpoonacularByIngredients(names, spoonKey);
-      const picked = pickSpoonacularSubset(spoonRows);
-      const aiTitles = new Set(
-        aiList.map((r) => normalizeTitle(r.title)),
-      );
-      spoonSlice = filterExcludedByTitle(
-        mapSpoonacular(
-          picked.filter(
-            (r) => !aiTitles.has(normalizeTitle(r.title)),
-          ),
-        ),
-        exclude,
-      ).slice(0, 8);
-    }
-
-    if (aiList.length > 0 && spoonSlice.length > 0) {
-      return NextResponse.json({
-        provider: "mixed" as const,
-        recipes: [
-          ...aiList.map((r) => ({
-            type: "openai" as const,
-            aiId: r.id,
-            title: r.title,
-            image: r.image,
-            ingredients: r.ingredients,
-            cuisine: r.cuisine,
-            meal_type: r.meal_type,
-            description: r.description,
-          })),
-          ...spoonSlice.map((r) => ({
-            type: "spoonacular" as const,
-            ...r,
-          })),
-        ],
-      });
-    }
-
-    if (aiList.length > 0) {
-      return NextResponse.json({
-        provider: "openai" as const,
-        recipes: aiList.map((r) => ({
-          aiId: r.id,
-          title: r.title,
-          image: r.image,
-          ingredients: r.ingredients,
-          cuisine: r.cuisine,
-          meal_type: r.meal_type,
-          description: r.description,
-        })),
-      });
-    }
-
-    // AI empty: fall back to Spoonacular-only if available
-    if (spoonKey) {
-      const spoonRows = await fetchSpoonacularByIngredients(names, spoonKey);
-      const picked = pickSpoonacularSubset(spoonRows);
-      const spoonSliceOnly = mapSpoonacular(picked);
-      if (spoonSliceOnly.length > 0) {
-        const filtered = filterExcludedByTitle(spoonSliceOnly, exclude);
-        const out = filtered.length > 0 ? filtered : spoonSliceOnly;
-        return NextResponse.json({
-          provider: "spoonacular" as const,
-          recipes: out,
-        });
-      }
-    }
-
-    return NextResponse.json({
-      provider: "none" as const,
-      recipes: [],
-      message:
-        "No pantry-only matches right now. Try Show me more or add more ingredients.",
-    });
-  }
-
-  // No OpenAI key: Spoonacular-first (legacy behavior)
   if (!spoonKey) {
     return NextResponse.json({
       provider: "none" as const,
-      recipes: [],
-      message: "Spoonacular not configured. Add OPENAI_API_KEY for pantry ideas.",
+      recipes: [] as SpoonacularRow[],
+      message:
+        "Spoonacular is not configured. Add SPOONACULAR_API_KEY to see real recipes.",
     });
   }
 
+  const exclude = parseExclude(request);
   const spoonRows = await fetchSpoonacularByIngredients(names, spoonKey);
   const picked = pickSpoonacularSubset(spoonRows);
-  const spoonSliceOnly = mapSpoonacular(picked);
+  const mapped = mapSpoonacular(picked);
 
-  if (spoonSliceOnly.length > 0) {
-    const filtered = filterExcludedByTitle(spoonSliceOnly, exclude);
-    const out = filtered.length > 0 ? filtered : spoonSliceOnly;
-    return NextResponse.json({
-      provider: "spoonacular" as const,
-      recipes: out,
-    });
-  }
+  const filtered = filterExcludedByTitle(mapped, exclude);
+  const out = filtered.length > 0 ? filtered : mapped;
 
-  const strictAi = await suggestPantryOnlyRecipesWithOpenAI(names, {
-    exclude,
-  });
-  if (strictAi.length > 0) {
+  if (out.length === 0) {
     return NextResponse.json({
-      provider: "openai" as const,
-      recipes: strictAi.map((r) => ({
-        aiId: r.id,
-        title: r.title,
-        image: r.image,
-        ingredients: r.ingredients,
-        cuisine: r.cuisine,
-        meal_type: r.meal_type,
-        description: r.description,
-      })),
-    });
-  }
-
-  const wideAi = await suggestRecipesWithOpenAI(names, { exclude });
-  if (wideAi.length > 0) {
-    return NextResponse.json({
-      provider: "openai" as const,
-      recipes: wideAi.map((r) => ({
-        aiId: r.id,
-        title: r.title,
-        image: r.image,
-        ingredients: r.ingredients,
-        cuisine: r.cuisine,
-        meal_type: r.meal_type,
-        description: r.description,
-      })),
+      provider: "none" as const,
+      recipes: [] as SpoonacularRow[],
+      message: "No pantry-only matches right now. Try adding more ingredients.",
     });
   }
 
   return NextResponse.json({
-    provider: "none" as const,
-    recipes: [],
-    message: "No pantry-only matches right now. Try again or add more ingredients.",
+    provider: "spoonacular" as const,
+    recipes: out.map((r) => ({
+      spoonacularId: r.id,
+      title: r.title,
+      image: r.image,
+      usedIngredientCount: r.usedIngredientCount,
+      missedIngredientCount: r.missedIngredientCount,
+      missedIngredients: r.missedIngredients,
+      usedIngredients: r.usedIngredients,
+    })),
   });
 }
